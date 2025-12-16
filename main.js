@@ -1,0 +1,488 @@
+// ========================================
+// Configuration
+// ========================================
+const CONFIG = {
+    // Published CSV URLs
+    TOTALS_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRziNeMKSXQhVUGcaUtS9VmGUhpWMiBDlo1H_U8p2pE5-0vx40TAZCTWjCZ9qy8rJTqjaDwp4od2WS2/pub?gid=288289321&single=true&output=csv',
+
+    // Original form responses for activity feed
+    SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
+    FORM_RESPONSES_SHEET: '表單回應 1',
+
+    // Refresh interval in milliseconds (5 minutes)
+    REFRESH_INTERVAL: 5 * 60 * 1000,
+
+    // Team configuration (order matters for parsing totals sheet)
+    TEAMS: [
+        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 2 },
+        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 5 },
+        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 8 },
+        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 11 },
+    ],
+
+    // Column indices in the form responses (0-indexed)
+    COLUMNS: {
+        TIMESTAMP: 0,    // 時間戳記
+        NAME: 1,         // 班級 (name)
+        TEAM: 2,         // 我屬於 (team)
+        MINUTES: 3,      // 我坐了幾分鐘？
+        DATE: 6,         // 日期
+        BONUS: 8,        // 加成
+        POINTS: 9,       // 積分
+    }
+};
+
+// ========================================
+// Utility Functions
+// ========================================
+function parseCSV(csvText) {
+    const lines = csvText.split('\n');
+    const result = [];
+
+    for (let i = 1; i < lines.length; i++) { // Skip header row
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Parse CSV considering quoted values
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (const char of line) {
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current.trim());
+
+        result.push(values);
+    }
+
+    return result;
+}
+
+function formatNumber(num) {
+    return num.toLocaleString('zh-TW');
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
+function cleanName(name) {
+    if (!name) return '';
+    // Remove common prefixes like "我叫" (My name is)
+    return name.replace(/^我叫/, '').trim();
+}
+
+function getTeamConfig(teamName) {
+    if (!teamName) return CONFIG.TEAMS[0];
+
+    // Try exact match first
+    const exactMatch = CONFIG.TEAMS.find(t => t.name === teamName);
+    if (exactMatch) return exactMatch;
+
+    // Try partial match (short name or contains)
+    const partialMatch = CONFIG.TEAMS.find(t =>
+        teamName.includes(t.shortName) || t.name.includes(teamName)
+    );
+    if (partialMatch) return partialMatch;
+
+    // Default fallback
+    return { name: teamName, id: 0, color: 'team-1', shortName: teamName.slice(0, 2) };
+}
+
+// ========================================
+// Data Fetching
+// ========================================
+async function fetchTotalsData() {
+    try {
+        const response = await fetch(CONFIG.TOTALS_CSV_URL);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csvText = await response.text();
+        return parseTotalsCSV(csvText);
+    } catch (error) {
+        console.error('Error fetching totals data:', error);
+        throw error;
+    }
+}
+
+function parseTotalsCSV(csvText) {
+    const lines = csvText.split('\n').map(line => {
+        // Parse CSV line
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        for (const char of line) {
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current.trim());
+        return values;
+    });
+
+    const result = {
+        teamScores: {},
+        teamMembers: {},
+        topMeditator: { name: '--', points: 0 }
+    };
+
+    // Initialize
+    for (const team of CONFIG.TEAMS) {
+        result.teamScores[team.name] = 0;
+        result.teamMembers[team.name] = [];
+    }
+
+    // Parse team totals (row 4: 累計總分)
+    if (lines[3]) {
+        for (const team of CONFIG.TEAMS) {
+            const score = parseFloat(lines[3][team.colIndex]) || 0;
+            result.teamScores[team.name] = score;
+        }
+    }
+
+    // Parse team members (rows 7+: 領航員 data)
+    for (let i = 6; i < lines.length; i++) {
+        const row = lines[i];
+        if (!row || row.length < 12) continue;
+
+        for (const team of CONFIG.TEAMS) {
+            const name = row[team.colIndex];
+            const points = parseFloat(row[team.colIndex + 1]) || 0;
+
+            if (name && name.trim()) {
+                result.teamMembers[team.name].push({ name: name.trim(), points });
+
+                // Track top meditator
+                if (points > result.topMeditator.points) {
+                    result.topMeditator = { name: name.trim(), points, team: team.name };
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+async function fetchFormResponsesData() {
+    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.FORM_RESPONSES_SHEET)}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csvText = await response.text();
+        return parseCSV(csvText);
+    } catch (error) {
+        console.error('Error fetching form responses:', error);
+        throw error;
+    }
+}
+
+// ========================================
+// Data Processing
+// ========================================
+function processFormResponses(rows) {
+    let totalMinutes = 0;
+    let totalSessions = 0;
+    let longestSession = { minutes: 0, name: '' };
+    const recentActivities = [];
+
+    // Process each row for activity feed and stats
+    for (const row of rows) {
+        const rawName = row[CONFIG.COLUMNS.NAME] || '';
+        const name = cleanName(rawName);
+        const team = row[CONFIG.COLUMNS.TEAM] || '';
+        const minutes = parseFloat(row[CONFIG.COLUMNS.MINUTES]) || 0;
+        const points = parseFloat(row[CONFIG.COLUMNS.POINTS]) || 0;
+        const date = row[CONFIG.COLUMNS.DATE] || '';
+        const timestamp = row[CONFIG.COLUMNS.TIMESTAMP] || '';
+
+        if (!team) continue;
+
+        // Find matching team config
+        const teamConfig = getTeamConfig(team);
+
+        // Stats
+        totalMinutes += minutes;
+        totalSessions++;
+
+        if (minutes > longestSession.minutes) {
+            longestSession = { minutes, name };
+        }
+
+        // Recent activity
+        recentActivities.push({
+            name,
+            team: teamConfig.name,
+            minutes,
+            points,
+            date,
+            timestamp,
+        });
+    }
+
+    // Sort activities by timestamp (newest first)
+    recentActivities.sort((a, b) => {
+        // Parse Chinese timestamp format: "2025/11/3 下午3:18:21"
+        const parseTimestamp = (ts) => {
+            if (!ts) return 0;
+            // Replace 下午 (PM) and 上午 (AM) for parsing
+            let normalized = ts.replace('下午', 'PM').replace('上午', 'AM');
+            // Try parsing directly
+            const date = new Date(normalized);
+            if (!isNaN(date.getTime())) return date.getTime();
+            // Fallback: just use the string for comparison
+            return 0;
+        };
+        return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
+    });
+
+    return {
+        totalMinutes,
+        totalSessions,
+        longestSession,
+        recentActivities: recentActivities.slice(0, 20), // Last 20 activities
+    };
+}
+
+// ========================================
+// Rendering Functions
+// ========================================
+function renderTeamBars(teamScores) {
+    const container = document.getElementById('teamBars');
+    if (!container) return;
+
+    // Find max score for percentage calculation
+    const scores = Object.values(teamScores);
+    const maxScore = Math.max(...scores, 1);
+
+    // Sort teams by score (descending)
+    const sortedTeams = Object.entries(teamScores)
+        .sort((a, b) => b[1] - a[1]);
+
+    container.innerHTML = sortedTeams.map(([teamName, score]) => {
+        const config = getTeamConfig(teamName);
+        const percentage = Math.max((score / maxScore) * 100, 5); // Minimum 5% for visibility
+
+        return `
+      <div class="team-bar-container">
+        <div class="team-bar-wrapper">
+          <div class="particles" id="particles-${config.id}"></div>
+          <div class="team-bar ${config.color}" style="height: ${percentage}%">
+            <span class="team-bar-score">${formatNumber(Math.round(score))}</span>
+          </div>
+        </div>
+        <div class="team-name ${config.color}">${teamName}</div>
+      </div>
+    `;
+    }).join('');
+
+    // Add particle effects
+    setTimeout(() => {
+        sortedTeams.forEach(([teamName]) => {
+            const config = getTeamConfig(teamName);
+            addParticles(`particles-${config.id}`);
+        });
+    }, 100);
+}
+
+function addParticles(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Add 5 particles per bar
+    for (let i = 0; i < 5; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = `${Math.random() * 80 + 10}%`;
+        particle.style.animationDelay = `${Math.random() * 3}s`;
+        particle.style.animationDuration = `${2 + Math.random() * 2}s`;
+        container.appendChild(particle);
+    }
+}
+
+function renderStats(data) {
+    // Total minutes
+    const totalMinutesEl = document.getElementById('totalMinutes');
+    if (totalMinutesEl) {
+        totalMinutesEl.textContent = formatNumber(Math.round(data.totalMinutes));
+    }
+
+    // Total sessions
+    const totalSessionsEl = document.getElementById('totalSessions');
+    if (totalSessionsEl) {
+        totalSessionsEl.textContent = formatNumber(data.totalSessions);
+    }
+
+    // Top meditator
+    const topMeditatorEl = document.getElementById('topMeditator');
+    if (topMeditatorEl) {
+        const name = data.topMeditator.name || '--';
+        // Truncate long names
+        topMeditatorEl.textContent = name.length > 8 ? name.slice(0, 8) + '…' : name;
+        topMeditatorEl.title = `${name} - ${formatNumber(Math.round(data.topMeditator.points))} 分`;
+    }
+
+    // Longest session
+    const longestSessionEl = document.getElementById('longestSession');
+    if (longestSessionEl) {
+        longestSessionEl.textContent = `${data.longestSession.minutes} 分`;
+        longestSessionEl.title = data.longestSession.name;
+    }
+}
+
+function renderLeaderboard(teamScores) {
+    const container = document.getElementById('leaderboard');
+    if (!container) return;
+
+    // Sort teams by score (descending)
+    const sortedTeams = Object.entries(teamScores)
+        .sort((a, b) => b[1] - a[1]);
+
+    const topScore = sortedTeams[0]?.[1] || 0;
+
+    const medals = ['🥇', '🥈', '🥉', ''];
+
+    container.innerHTML = sortedTeams.map(([teamName, score], index) => {
+        const config = getTeamConfig(teamName);
+        const rank = index + 1;
+        const diff = topScore - score;
+        const diffText = rank === 1 ? '領先中 Leading!' : `落後 ${formatNumber(Math.round(diff))} 分`;
+
+        return `
+      <div class="leaderboard-item">
+        <div class="rank rank-${rank}">
+          ${medals[index] ? `<span class="rank-medal">${medals[index]}</span>` : rank}
+        </div>
+        <div class="team-info">
+          <div class="team-info-name ${config.color}-text">${teamName}</div>
+          <div class="team-info-diff">${diffText}</div>
+        </div>
+        <div class="team-score ${config.color}-text">${formatNumber(Math.round(score))}</div>
+      </div>
+    `;
+    }).join('');
+}
+
+function renderActivityFeed(activities) {
+    const container = document.getElementById('activityFeed');
+    if (!container) return;
+
+    if (activities.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">暫無活動記錄 No activities yet</p>';
+        return;
+    }
+
+    container.innerHTML = activities.map(activity => {
+        const config = getTeamConfig(activity.team);
+        return `
+      <div class="activity-item ${config.color}">
+        <div class="activity-icon">🧘</div>
+        <div class="activity-content">
+          <div class="activity-name">${activity.name || '匿名'}</div>
+          <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
+        </div>
+        <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
+      </div>
+    `;
+    }).join('');
+}
+
+function updateLastUpdated() {
+    const el = document.getElementById('lastUpdate');
+    if (el) {
+        el.textContent = new Date().toLocaleString('zh-TW');
+    }
+}
+
+function showError(message) {
+    const containers = ['teamBars', 'leaderboard', 'activityFeed'];
+    containers.forEach(id => {
+        const container = document.getElementById(id);
+        if (container) {
+            container.innerHTML = `
+        <div class="error-message">
+          <p>❌ ${message}</p>
+          <p style="margin-top: 0.5rem; font-size: 0.9rem;">請確認 Google Sheets 已發布到網路<br>Please ensure the Google Sheet is published to the web</p>
+        </div>
+      `;
+        }
+    });
+}
+
+// ========================================
+// Main App
+// ========================================
+async function loadData() {
+    try {
+        console.log('Fetching data from Google Sheets...');
+
+        // Fetch both data sources in parallel
+        const [totalsData, formRows] = await Promise.all([
+            fetchTotalsData(),
+            fetchFormResponsesData()
+        ]);
+
+        console.log('Totals data:', totalsData);
+        console.log(`Form responses: ${formRows.length} rows`);
+
+        // Process form responses for activity feed and stats
+        const formData = processFormResponses(formRows);
+
+        // Combine data
+        const data = {
+            teamScores: totalsData.teamScores,
+            topMeditator: totalsData.topMeditator,
+            teamMembers: totalsData.teamMembers,
+            totalMinutes: formData.totalMinutes,
+            totalSessions: formData.totalSessions,
+            longestSession: formData.longestSession,
+            recentActivities: formData.recentActivities,
+        };
+
+        console.log('Combined data:', data);
+
+        renderTeamBars(data.teamScores);
+        renderStats(data);
+        renderLeaderboard(data.teamScores);
+        renderActivityFeed(data.recentActivities);
+        updateLastUpdated();
+
+    } catch (error) {
+        console.error('Failed to load data:', error);
+        showError('無法載入資料 Failed to load data');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial load
+    loadData();
+
+    // Auto-refresh every 5 minutes
+    setInterval(loadData, CONFIG.REFRESH_INTERVAL);
+
+    console.log('🧘 Meditation Dashboard initialized');
+    console.log(`Auto-refresh interval: ${CONFIG.REFRESH_INTERVAL / 1000 / 60} minutes`);
+});

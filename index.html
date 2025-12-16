@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>禪定積分賽 | Meditation Competition</title>
+  <meta name="description" content="禪修社團競賽積分即時看板 - Real-time meditation competition dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="bg-effects">
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
+  </div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-glow"></div>
+      <h1 class="title">
+        <span class="title-icon">🧘</span>
+        禪定積分賽
+        <span class="title-icon">🧘</span>
+      </h1>
+      <p class="subtitle">Meditation Competition Dashboard</p>
+    </header>
+
+    <!-- Team Score Bars -->
+    <section class="score-section">
+      <h2 class="section-title">
+        <span class="section-icon">⚡</span>
+        隊伍積分 Team Scores
+      </h2>
+      <div class="team-bars" id="teamBars">
+        <!-- Team bars will be rendered by JS -->
+        <div class="loading-placeholder">
+          <div class="loading-spinner"></div>
+          <p>載入中 Loading...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Cards -->
+    <section class="stats-section">
+      <h2 class="section-title">
+        <span class="section-icon">📊</span>
+        統計數據 Stats
+      </h2>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value" id="totalMinutes">--</div>
+          <div class="stat-label">總禪定分鐘<br>Total Minutes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-value" id="totalSessions">--</div>
+          <div class="stat-label">總禪定次數<br>Total Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👑</div>
+          <div class="stat-value" id="topMeditator">--</div>
+          <div class="stat-label">最高積分者<br>Top Scorer</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏅</div>
+          <div class="stat-value" id="longestSession">--</div>
+          <div class="stat-label">最長單次禪定<br>Longest Session</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section class="leaderboard-section">
+      <h2 class="section-title">
+        <span class="section-icon">🏆</span>
+        排行榜 Leaderboard
+      </h2>
+      <div class="leaderboard-card glass-card" id="leaderboard">
+        <div class="loading-placeholder">
+          <div class="loading-spinner"></div>
+          <p>載入中 Loading...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="activity-section">
+      <h2 class="section-title">
+        <span class="section-icon">✨</span>
+        最近活動 Recent Activity
+      </h2>
+      <div class="activity-feed glass-card" id="activityFeed">
+        <div class="loading-placeholder">
+          <div class="loading-spinner"></div>
+          <p>載入中 Loading...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>最後更新 Last updated: <span id="lastUpdate">--</span></p>
+      <p class="footer-note">每 5 分鐘自動更新 Auto-refreshes every 5 minutes</p>
+    </footer>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
