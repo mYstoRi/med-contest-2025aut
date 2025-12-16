@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
 </head>
+
 <body>
+  <!-- Settings Button & Panel -->
+  <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+    ⚙️
+  </button>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-title">⚙️ 設定 Settings</div>
+    <div class="settings-item">
+      <span class="settings-label">主題 Theme</span>
+      <div class="theme-toggle" id="themeToggle" role="switch" aria-label="Toggle theme"></div>
+    </div>
+  </div>
+
   <div class="bg-effects">
     <div class="gradient-orb orb-1"></div>
     <div class="gradient-orb orb-2"></div>
@@ -111,4 +125,5 @@
 
   <script type="module" src="./main.js"></script>
 </body>
+
 </html>

@@ -3,51 +3,94 @@
    ======================================== */
 :root {
   /* Team Colors */
-  --team-1-color: #f59e0b; /* 晨絜 - Amber/Gold */
+  --team-1-color: #f59e0b;
+  /* 晨絜 - Amber/Gold */
   --team-1-glow: rgba(245, 158, 11, 0.5);
-  --team-2-color: #ec4899; /* 明緯 - Pink/Magenta */
+  --team-2-color: #ec4899;
+  /* 明緯 - Pink/Magenta */
   --team-2-glow: rgba(236, 72, 153, 0.5);
-  --team-3-color: #10b981; /* 敬涵 - Emerald/Green */
+  --team-3-color: #10b981;
+  /* 敬涵 - Emerald/Green */
   --team-3-glow: rgba(16, 185, 129, 0.5);
-  --team-4-color: #8b5cf6; /* 宗翰 - Violet/Purple */
+  --team-4-color: #8b5cf6;
+  /* 宗翰 - Violet/Purple */
   --team-4-glow: rgba(139, 92, 246, 0.5);
 
-  /* Background */
+  /* Background - Dark Theme (Default) */
   --bg-dark: #0f0a1f;
   --bg-gradient-1: #1a0f2e;
   --bg-gradient-2: #0d1b2a;
-  
+
   /* Glass effect */
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shadow: rgba(0, 0, 0, 0.3);
-  
+
   /* Text */
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-muted: rgba(255, 255, 255, 0.5);
-  
+
   /* Fonts */
   --font-main: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
-  
+
   /* Spacing */
   --spacing-xs: 0.5rem;
   --spacing-sm: 1rem;
   --spacing-md: 1.5rem;
   --spacing-lg: 2rem;
   --spacing-xl: 3rem;
-  
+
   /* Border radius */
   --radius-sm: 8px;
   --radius-md: 16px;
   --radius-lg: 24px;
   --radius-full: 9999px;
+
+  /* Orb colors for background effects */
+  --orb-1-color: var(--team-4-color);
+  --orb-2-color: var(--team-2-color);
+  --orb-3-color: var(--team-3-color);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Keep same team colors */
+  --team-1-glow: rgba(245, 158, 11, 0.3);
+  --team-2-glow: rgba(236, 72, 153, 0.3);
+  --team-3-glow: rgba(16, 185, 129, 0.3);
+  --team-4-glow: rgba(139, 92, 246, 0.3);
+
+  /* Light background */
+  --bg-dark: #faf8f5;
+  --bg-gradient-1: #fff9f0;
+  --bg-gradient-2: #f5f0e8;
+
+  /* Glass effect for light theme */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.1);
+
+  /* Dark text on light bg */
+  --text-primary: #1a1a2e;
+  --text-secondary: rgba(26, 26, 46, 0.75);
+  --text-muted: rgba(26, 26, 46, 0.55);
+
+  /* Warm orb colors for light theme */
+  --orb-1-color: #ef4444;
+  /* Red */
+  --orb-2-color: #fbbf24;
+  /* Yellow */
+  --orb-3-color: #22c55e;
+  /* Green */
 }
 
 /* ========================================
    Reset & Base
    ======================================== */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -91,7 +134,7 @@ body {
 .orb-1 {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, var(--team-4-color), transparent 70%);
+  background: radial-gradient(circle, var(--orb-1-color), transparent 70%);
   top: -200px;
   right: -200px;
   animation-delay: 0s;
@@ -100,7 +143,7 @@ body {
 .orb-2 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, var(--team-2-color), transparent 70%);
+  background: radial-gradient(circle, var(--orb-2-color), transparent 70%);
   bottom: -150px;
   left: -150px;
   animation-delay: -7s;
@@ -109,7 +152,7 @@ body {
 .orb-3 {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, var(--team-3-color), transparent 70%);
+  background: radial-gradient(circle, var(--orb-3-color), transparent 70%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -117,10 +160,23 @@ body {
 }
 
 @keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(50px, -30px) scale(1.05); }
-  50% { transform: translate(-30px, 50px) scale(0.95); }
-  75% { transform: translate(-50px, -20px) scale(1.02); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  25% {
+    transform: translate(50px, -30px) scale(1.05);
+  }
+
+  50% {
+    transform: translate(-30px, 50px) scale(0.95);
+  }
+
+  75% {
+    transform: translate(-50px, -20px) scale(1.02);
+  }
 }
 
 /* ========================================
@@ -186,8 +242,17 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
 }
 
 .subtitle {
@@ -284,35 +349,35 @@ body {
   left: 0;
   right: 0;
   height: 50%;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .team-bar.team-1 {
   background: linear-gradient(to top, var(--team-1-color), #fbbf24);
-  box-shadow: 0 0 30px var(--team-1-glow), inset 0 0 20px rgba(255,255,255,0.1);
+  box-shadow: 0 0 30px var(--team-1-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .team-bar.team-2 {
   background: linear-gradient(to top, var(--team-2-color), #f472b6);
-  box-shadow: 0 0 30px var(--team-2-glow), inset 0 0 20px rgba(255,255,255,0.1);
+  box-shadow: 0 0 30px var(--team-2-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .team-bar.team-3 {
   background: linear-gradient(to top, var(--team-3-color), #34d399);
-  box-shadow: 0 0 30px var(--team-3-glow), inset 0 0 20px rgba(255,255,255,0.1);
+  box-shadow: 0 0 30px var(--team-3-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .team-bar.team-4 {
   background: linear-gradient(to top, var(--team-4-color), #a78bfa);
-  box-shadow: 0 0 30px var(--team-4-glow), inset 0 0 20px rgba(255,255,255,0.1);
+  box-shadow: 0 0 30px var(--team-4-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .team-bar-score {
   font-size: 1.5rem;
   font-weight: 700;
   color: white;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   position: relative;
   z-index: 1;
 }
@@ -324,10 +389,21 @@ body {
   color: var(--text-secondary);
 }
 
-.team-name.team-1 { color: var(--team-1-color); }
-.team-name.team-2 { color: var(--team-2-color); }
-.team-name.team-3 { color: var(--team-3-color); }
-.team-name.team-4 { color: var(--team-4-color); }
+.team-name.team-1 {
+  color: var(--team-1-color);
+}
+
+.team-name.team-2 {
+  color: var(--team-2-color);
+}
+
+.team-name.team-3 {
+  color: var(--team-3-color);
+}
+
+.team-name.team-4 {
+  color: var(--team-4-color);
+}
 
 /* Particles animation */
 .particles {
@@ -354,9 +430,11 @@ body {
     opacity: 0;
     transform: translateY(0) scale(0);
   }
+
   10% {
     opacity: 1;
   }
+
   100% {
     opacity: 0;
     transform: translateY(-280px) scale(1);
@@ -455,10 +533,21 @@ body {
   text-align: center;
 }
 
-.rank-1 { color: #ffd700; }
-.rank-2 { color: #c0c0c0; }
-.rank-3 { color: #cd7f32; }
-.rank-4 { color: var(--text-muted); }
+.rank-1 {
+  color: #ffd700;
+}
+
+.rank-2 {
+  color: #c0c0c0;
+}
+
+.rank-3 {
+  color: #cd7f32;
+}
+
+.rank-4 {
+  color: var(--text-muted);
+}
 
 .rank-medal {
   font-size: 2rem;
@@ -483,10 +572,21 @@ body {
   font-weight: 700;
 }
 
-.team-1-text { color: var(--team-1-color); }
-.team-2-text { color: var(--team-2-color); }
-.team-3-text { color: var(--team-3-color); }
-.team-4-text { color: var(--team-4-color); }
+.team-1-text {
+  color: var(--team-1-color);
+}
+
+.team-2-text {
+  color: var(--team-2-color);
+}
+
+.team-3-text {
+  color: var(--team-3-color);
+}
+
+.team-4-text {
+  color: var(--team-4-color);
+}
 
 /* ========================================
    Activity Feed
@@ -531,16 +631,28 @@ body {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.activity-item.team-1 { border-left-color: var(--team-1-color); }
-.activity-item.team-2 { border-left-color: var(--team-2-color); }
-.activity-item.team-3 { border-left-color: var(--team-3-color); }
-.activity-item.team-4 { border-left-color: var(--team-4-color); }
+.activity-item.team-1 {
+  border-left-color: var(--team-1-color);
+}
+
+.activity-item.team-2 {
+  border-left-color: var(--team-2-color);
+}
+
+.activity-item.team-3 {
+  border-left-color: var(--team-3-color);
+}
+
+.activity-item.team-4 {
+  border-left-color: var(--team-4-color);
+}
 
 @keyframes slideIn {
   from {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -573,10 +685,25 @@ body {
   font-size: 0.9rem;
 }
 
-.activity-points.team-1 { background: var(--team-1-glow); color: white; }
-.activity-points.team-2 { background: var(--team-2-glow); color: white; }
-.activity-points.team-3 { background: var(--team-3-glow); color: white; }
-.activity-points.team-4 { background: var(--team-4-glow); color: white; }
+.activity-points.team-1 {
+  background: var(--team-1-glow);
+  color: white;
+}
+
+.activity-points.team-2 {
+  background: var(--team-2-glow);
+  color: white;
+}
+
+.activity-points.team-3 {
+  background: var(--team-3-glow);
+  color: white;
+}
+
+.activity-points.team-4 {
+  background: var(--team-4-glow);
+  color: white;
+}
 
 /* ========================================
    Footer
@@ -617,7 +744,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========================================
@@ -639,20 +768,157 @@ body {
   .container {
     padding: var(--spacing-sm);
   }
-  
+
   .title {
     letter-spacing: 0.05em;
   }
-  
+
   .section-title {
     font-size: 1.2rem;
   }
-  
+
   .leaderboard-item {
     padding: var(--spacing-xs) var(--spacing-sm);
   }
-  
+
   .team-score {
     font-size: 1.2rem;
   }
+}
+
+/* ========================================
+   Settings Button & Theme Toggle
+   ======================================== */
+.settings-btn {
+  position: fixed;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  z-index: 100;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.settings-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 25px var(--glass-shadow);
+}
+
+.settings-panel {
+  position: fixed;
+  top: 80px;
+  right: var(--spacing-md);
+  z-index: 99;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  min-width: 200px;
+  box-shadow: 0 15px 40px var(--glass-shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.settings-panel.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.settings-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) 0;
+}
+
+.settings-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Theme Toggle Switch */
+.theme-toggle {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+[data-theme="light"] .theme-toggle {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle::before {
+  content: '🌙';
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .theme-toggle::before {
+  content: '☀️';
+  left: calc(100% - 24px);
+}
+
+/* Light theme specific adjustments */
+[data-theme="light"] .title {
+  text-shadow: 0 0 40px rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="light"] .header-glow {
+  background: radial-gradient(ellipse, rgba(251, 191, 36, 0.2), transparent 70%);
+}
+
+[data-theme="light"] .stat-card:hover {
+  box-shadow: 0 15px 40px rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="light"] .team-bar-wrapper {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .activity-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .leaderboard-item:hover {
+  background: rgba(0, 0, 0, 0.03);
 }
