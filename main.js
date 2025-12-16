@@ -228,7 +228,8 @@ function processFormResponses(rows) {
         const name = cleanName(rawName);
         const team = row[CONFIG.COLUMNS.TEAM] || '';
         const minutes = parseFloat(row[CONFIG.COLUMNS.MINUTES]) || 0;
-        const points = parseFloat(row[CONFIG.COLUMNS.POINTS]) || 0;
+        // Points = minutes (1 minute = 1 point)
+        const points = minutes;
         const date = row[CONFIG.COLUMNS.DATE] || '';
         const timestamp = row[CONFIG.COLUMNS.TIMESTAMP] || '';
 
