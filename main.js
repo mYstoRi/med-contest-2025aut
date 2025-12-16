@@ -13,22 +13,24 @@ const CONFIG = {
     REFRESH_INTERVAL: 5 * 60 * 1000,
 
     // Team configuration (order matters for parsing totals sheet)
+    // Column indices point to the SCORE column (after 累計總分 label)
     TEAMS: [
-        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 2 },
-        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 5 },
-        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 8 },
-        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 11 },
+        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3 },
+        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6 },
+        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9 },
+        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12 },
     ],
 
     // Column indices in the form responses (0-indexed)
+    // Based on actual CSV: timestamp, name, date, minutes, ...
     COLUMNS: {
         TIMESTAMP: 0,    // 時間戳記
-        NAME: 1,         // 班級 (name)
-        TEAM: 2,         // 我屬於 (team)
+        NAME: 1,         // 姓名
+        DATE: 2,         // 這是哪一天的記錄呢？(日期)
         MINUTES: 3,      // 我坐了幾分鐘？
-        DATE: 6,         // 日期
-        BONUS: 8,        // 加成
-        POINTS: 9,       // 積分
+        TEAM: 4,         // 我屬於 (team) - may vary based on form
+        BONUS: 5,        // 加成
+        POINTS: 6,       // 積分
     }
 };
 
@@ -73,8 +75,20 @@ function formatNumber(num) {
 function formatDate(dateStr) {
     if (!dateStr) return '';
     try {
+        // Handle yyyy/mm/dd format from Google Sheets
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                const [year, month, day] = parts.map(Number);
+                return `${month}月${day}日`;
+            }
+        }
+        // Fallback: try native parsing
         const date = new Date(dateStr);
-        return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
+        }
+        return dateStr;
     } catch {
         return dateStr;
     }
@@ -247,13 +261,30 @@ function processFormResponses(rows) {
         // Parse Chinese timestamp format: "2025/11/3 下午3:18:21"
         const parseTimestamp = (ts) => {
             if (!ts) return 0;
-            // Replace 下午 (PM) and 上午 (AM) for parsing
-            let normalized = ts.replace('下午', 'PM').replace('上午', 'AM');
-            // Try parsing directly
-            const date = new Date(normalized);
-            if (!isNaN(date.getTime())) return date.getTime();
-            // Fallback: just use the string for comparison
-            return 0;
+            try {
+                // Format: "2025/11/3 下午3:18:21" or "2025/11/3 上午10:18:21"
+                const parts = ts.split(' ');
+                if (parts.length < 2) return 0;
+
+                const datePart = parts[0]; // "2025/11/3"
+                let timePart = parts[1];   // "下午3:18:21" or "上午10:18:21"
+
+                // Extract AM/PM and time
+                const isPM = timePart.includes('下午');
+                timePart = timePart.replace('下午', '').replace('上午', '');
+
+                const [hours, minutes, seconds] = timePart.split(':').map(Number);
+                let hour24 = hours;
+
+                if (isPM && hours < 12) hour24 = hours + 12;
+                if (!isPM && hours === 12) hour24 = 0;
+
+                const [year, month, day] = datePart.split('/').map(Number);
+
+                return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0).getTime();
+            } catch (e) {
+                return 0;
+            }
         };
         return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
     });
