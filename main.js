@@ -13,12 +13,12 @@ const CONFIG = {
     REFRESH_INTERVAL: 5 * 60 * 1000,
 
     // Team configuration (order matters for parsing totals sheet)
-    // Column indices point to the SCORE column (after 累計總分 label)
+    // colIndex = score column, memberColIndex = member name column (for members section)
     TEAMS: [
-        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3 },
-        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6 },
-        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9 },
-        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12 },
+        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3, memberColIndex: 2 },
+        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6, memberColIndex: 5 },
+        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9, memberColIndex: 8 },
+        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12, memberColIndex: 11 },
     ],
 
     // Column indices in the form responses (0-indexed)
@@ -180,8 +180,8 @@ function parseTotalsCSV(csvText) {
         if (!row || row.length < 12) continue;
 
         for (const team of CONFIG.TEAMS) {
-            const name = row[team.colIndex];
-            const points = parseFloat(row[team.colIndex + 1]) || 0;
+            const name = row[team.memberColIndex];
+            const points = parseFloat(row[team.memberColIndex + 1]) || 0;
 
             if (name && name.trim()) {
                 result.teamMembers[team.name].push({ name: name.trim(), points });
