@@ -316,6 +316,7 @@ function renderTeamBars(teamScores) {
     container.innerHTML = sortedTeams.map(([teamName, score]) => {
         const config = getTeamConfig(teamName);
         const percentage = Math.max((score / maxScore) * 100, 5); // Minimum 5% for visibility
+        const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;
 
         return `
       <div class="team-bar-container">
@@ -325,7 +326,9 @@ function renderTeamBars(teamScores) {
             <span class="team-bar-score">${formatNumber(Math.round(score))}</span>
           </div>
         </div>
-        <div class="team-name ${config.color}">${teamName}</div>
+        <a href="${teamUrl}" class="team-name ${config.color}" style="text-decoration: none; cursor: pointer;">
+          ${teamName}
+        </a>
       </div>
     `;
     }).join('');
@@ -401,9 +404,10 @@ function renderLeaderboard(teamScores) {
         const rank = index + 1;
         const diff = topScore - score;
         const diffText = rank === 1 ? '領先中 Leading!' : `落後 ${formatNumber(Math.round(diff))} 分`;
+        const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;
 
         return `
-      <div class="leaderboard-item">
+      <a href="${teamUrl}" class="leaderboard-item" style="text-decoration: none; color: inherit;">
         <div class="rank rank-${rank}">
           ${medals[index] ? `<span class="rank-medal">${medals[index]}</span>` : rank}
         </div>
@@ -412,7 +416,7 @@ function renderLeaderboard(teamScores) {
           <div class="team-info-diff">${diffText}</div>
         </div>
         <div class="team-score ${config.color}-text">${formatNumber(Math.round(score))}</div>
-      </div>
+      </a>
     `;
     }).join('');
 }
