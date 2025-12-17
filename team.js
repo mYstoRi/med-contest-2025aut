@@ -368,18 +368,25 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     }
 
     // Sort dates and calculate cumulative totals for each team
+    // Get current date for filtering
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+    const currentVal = (currentMonth < 6 ? currentMonth + 12 : currentMonth) * 100 + currentDay;
+
     for (const teamName of Object.keys(teamDailyScores)) {
         const team = teamDailyScores[teamName];
 
-        // Simple date sort (MM/DD format)
-        team.dates.sort((a, b) => {
-            const [am, ad] = a.split('/').map(Number);
-            const [bm, bd] = b.split('/').map(Number);
-            // Handle year wrap: Dec is 2025, Jan is 2026
-            const aVal = (am < 6 ? am + 12 : am) * 100 + ad;
-            const bVal = (bm < 6 ? bm + 12 : bm) * 100 + bd;
-            return aVal - bVal;
-        });
+        // Simple date sort (MM/DD format) and filter to current date
+        team.dates = team.dates
+            .map(d => {
+                const [m, day] = d.split('/').map(Number);
+                const val = (m < 6 ? m + 12 : m) * 100 + day;
+                return { date: d, val };
+            })
+            .filter(d => d.val <= currentVal) // Only past/current dates
+            .sort((a, b) => a.val - b.val)
+            .map(d => d.date);
 
         // Calculate cumulative scores
         team.cumulative = [];
@@ -440,8 +447,8 @@ function renderChart(data) {
         };
     });
 
-    // Get max cumulative value for y-axis
-    const maxValue = Math.max(...stackedData.map(d => d.total), 1);
+    // Get max cumulative value for y-axis (minimum 2500 so bars don't reach top)
+    const maxValue = Math.max(...stackedData.map(d => d.total), 2500);
 
     // Scale functions
     const xScale = (i) => padding.left + (i / Math.max(data.length - 1, 1)) * chartWidth;
@@ -655,7 +662,6 @@ function renderTeamPage(teamData, scoreBreakdown) {
                                     <span class="debug-item meditation">🧘 ${member.meditation}</span>
                                     <span class="debug-item practice">🙏 ${member.practice}</span>
                                     <span class="debug-item class">📚 ${member.class}</span>
-                                    <span class="debug-item sum">= ${member.meditation + member.practice + member.class}</span>
                                 </div>
                             </div>
                             <div class="member-score">${member.total.toLocaleString()}</div>

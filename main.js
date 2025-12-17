@@ -305,9 +305,9 @@ function renderTeamBars(teamScores) {
     const container = document.getElementById('teamBars');
     if (!container) return;
 
-    // Find max score for percentage calculation
+    // Find max score for percentage calculation (minimum 2500 so bars don't reach top)
     const scores = Object.values(teamScores);
-    const maxScore = Math.max(...scores, 1);
+    const maxScore = Math.max(...scores, 2500);
 
     // Sort teams by score (descending)
     const sortedTeams = Object.entries(teamScores)
