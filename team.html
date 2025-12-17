@@ -285,9 +285,46 @@
             background: #f59e0b;
         }
 
+        /* Debug breakdown info */
+        .member-breakdown-debug {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: 4px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .debug-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .debug-item.meditation {
+            color: #8b5cf6;
+        }
+
+        .debug-item.practice {
+            color: #10b981;
+        }
+
+        .debug-item.class {
+            color: #f59e0b;
+        }
+
+        .debug-item.sum {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
         @media (max-width: 600px) {
             .legend-item {
                 min-width: 100%;
+            }
+
+            .member-breakdown-debug {
+                flex-wrap: wrap;
+                gap: var(--spacing-xs);
             }
         }
     </style>

@@ -346,6 +346,12 @@ function renderTeamPage(teamData, scoreBreakdown) {
                                     <div class="member-bar-segment practice" style="width: ${pPct}%"></div>
                                     <div class="member-bar-segment class" style="width: ${cPct}%"></div>
                                 </div>
+                                <div class="member-breakdown-debug">
+                                    <span class="debug-item meditation">🧘 ${member.meditation}</span>
+                                    <span class="debug-item practice">🙏 ${member.practice}</span>
+                                    <span class="debug-item class">📚 ${member.class}</span>
+                                    <span class="debug-item sum">= ${member.meditation + member.practice + member.class}</span>
+                                </div>
                             </div>
                             <div class="member-score">${member.total.toLocaleString()}</div>
                         </div>
