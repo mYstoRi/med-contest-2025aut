@@ -8,6 +8,7 @@ export default defineConfig({
             input: {
                 main: resolve(__dirname, 'index.html'),
                 team: resolve(__dirname, 'team.html'),
+                member: resolve(__dirname, 'member.html'),
             },
         },
     },

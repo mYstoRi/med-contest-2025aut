@@ -664,11 +664,13 @@ function renderTeamPage(teamData, scoreBreakdown) {
         const pPct = member.practice / memberTotal * barWidth;
         const cPct = member.class / memberTotal * barWidth;
 
+        const memberUrl = `./member.html?name=${encodeURIComponent(member.name)}&team=${encodeURIComponent(teamName)}`;
+
         return `
                         <div class="member-card">
                             <div class="member-rank ${rankClass}">${rankEmoji}</div>
                             <div class="member-info">
-                                <div class="member-name">${member.name}</div>
+                                <a href="${memberUrl}" class="member-name-link">${member.name}</a>
                                 <div class="member-bar-container stacked">
                                     <div class="member-bar-segment meditation" style="width: ${mPct}%"></div>
                                     <div class="member-bar-segment practice" style="width: ${pPct}%"></div>
