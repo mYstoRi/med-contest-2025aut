@@ -329,7 +329,8 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
                 if (!date) continue;
 
                 const attended = parseFloat(row[j]) || 0;
-                const score = attended > 0 ? (pointsPerSession[j - 3] || 0) : 0;
+                // Fixed 40 points per practice session attended
+                const score = attended > 0 ? 40 : 0;
 
                 if (teamDailyScores[teamName].daily[date]) {
                     teamDailyScores[teamName].daily[date].practice += score;
