@@ -8,6 +8,7 @@ const CONFIG = {
     // Original form responses for activity feed
     SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
     FORM_RESPONSES_SHEET: '表單回應 1',
+    MEDITATION_SHEET: '禪定',  // For name-to-team mapping
 
     // Refresh interval in milliseconds (5 minutes)
     REFRESH_INTERVAL: 5 * 60 * 1000,
@@ -213,10 +214,60 @@ async function fetchFormResponsesData() {
     }
 }
 
+// Fetch meditation sheet to build name -> team mapping
+async function fetchMemberTeams() {
+    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEDITATION_SHEET)}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csvText = await response.text();
+        const lines = csvText.split('\n');
+        const memberTeams = {}; // name -> team
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // Parse CSV line
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            for (const char of line) {
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim());
+
+            // Column 0 = team, Column 1 = name
+            const teamName = values[0];
+            const memberName = values[1];
+
+            if (teamName && memberName) {
+                memberTeams[memberName] = teamName;
+            }
+        }
+
+        console.log('Member teams mapping:', Object.keys(memberTeams).length, 'members');
+        return memberTeams;
+    } catch (error) {
+        console.error('Error fetching member teams:', error);
+        return {};
+    }
+}
+
 // ========================================
 // Data Processing
 // ========================================
-function processFormResponses(rows) {
+function processFormResponses(rows, memberTeams = {}) {
     let totalMinutes = 0;
     let totalSessions = 0;
     let longestSession = { minutes: 0, name: '' };
@@ -226,14 +277,15 @@ function processFormResponses(rows) {
     for (const row of rows) {
         const rawName = row[CONFIG.COLUMNS.NAME] || '';
         const name = cleanName(rawName);
-        const team = row[CONFIG.COLUMNS.TEAM] || '';
+        // Use memberTeams mapping from meditation sheet (more accurate)
+        const team = memberTeams[name] || row[CONFIG.COLUMNS.TEAM] || '';
         const minutes = parseFloat(row[CONFIG.COLUMNS.MINUTES]) || 0;
         // Points = minutes (1 minute = 1 point)
         const points = minutes;
         const date = row[CONFIG.COLUMNS.DATE] || '';
         const timestamp = row[CONFIG.COLUMNS.TIMESTAMP] || '';
 
-        if (!team) continue;
+        if (!name) continue;
 
         // Find matching team config
         const teamConfig = getTeamConfig(team);
@@ -544,17 +596,18 @@ async function loadData() {
     try {
         console.log('Fetching data from Google Sheets...');
 
-        // Fetch both data sources in parallel
-        const [totalsData, formRows] = await Promise.all([
+        // Fetch all data sources in parallel
+        const [totalsData, formRows, memberTeams] = await Promise.all([
             fetchTotalsData(),
-            fetchFormResponsesData()
+            fetchFormResponsesData(),
+            fetchMemberTeams()
         ]);
 
         console.log('Totals data:', totalsData);
         console.log(`Form responses: ${formRows.length} rows`);
 
         // Process form responses for activity feed and stats
-        const formData = processFormResponses(formRows);
+        const formData = processFormResponses(formRows, memberTeams);
 
         // Combine data
         const data = {
