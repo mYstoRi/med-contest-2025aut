@@ -167,8 +167,8 @@ function parseMeditationSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
     const teamScores = {};
 
-    // Skip first 2 rows (header rows), start from row 3
-    for (let i = 2; i < lines.length; i++) {
+    // Row 0 has dates header, data starts from row 1
+    for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 4) continue;
 
@@ -201,7 +201,7 @@ function parsePracticeSheet(csvText) {
     // Row 1 has the points per session for each date column
     const pointsPerSession = lines[0] ? lines[0].slice(3).map(p => parseFloat(p) || 0) : [];
 
-    // Skip first 2 rows (header rows), start from row 3
+    // Row 0 has points, row 1 has dates, data starts from row 2
     for (let i = 2; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 4) continue;
@@ -235,8 +235,8 @@ function parseClassSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
     const teamScores = {};
 
-    // Skip first 2 rows (header rows), start from row 3
-    for (let i = 2; i < lines.length; i++) {
+    // Row 0 has dates header, data starts from row 1
+    for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 4) continue;
 
