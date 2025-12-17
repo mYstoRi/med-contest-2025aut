@@ -178,6 +178,118 @@
             padding: var(--spacing-xl);
             color: var(--text-muted);
         }
+
+        /* Score Breakdown Section */
+        .breakdown-section {
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        .stacked-bar-container {
+            margin: var(--spacing-md) 0;
+        }
+
+        .stacked-bar {
+            height: 40px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+        }
+
+        .stacked-segment {
+            height: 100%;
+            transition: width 1s ease;
+            position: relative;
+        }
+
+        .stacked-segment.meditation {
+            background: #8b5cf6;
+        }
+
+        .stacked-segment.practice {
+            background: #10b981;
+        }
+
+        .stacked-segment.class {
+            background: #f59e0b;
+        }
+
+        .breakdown-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-color.meditation {
+            background: #8b5cf6;
+        }
+
+        .legend-color.practice {
+            background: #10b981;
+        }
+
+        .legend-color.class {
+            background: #f59e0b;
+        }
+
+        .legend-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .legend-value {
+            margin-left: auto;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Stacked Member Bars */
+        .member-bar-container.stacked {
+            display: flex;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .member-bar-segment {
+            height: 100%;
+            transition: width 1s ease;
+        }
+
+        .member-bar-segment.meditation {
+            background: #8b5cf6;
+        }
+
+        .member-bar-segment.practice {
+            background: #10b981;
+        }
+
+        .member-bar-segment.class {
+            background: #f59e0b;
+        }
+
+        @media (max-width: 600px) {
+            .legend-item {
+                min-width: 100%;
+            }
+        }
     </style>
 </head>
 
