@@ -308,6 +308,32 @@
             text-decoration: underline;
         }
 
+        /* Streak badge */
+        .member-streak {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+            padding: 2px 6px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            animation: pulse-fire 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-fire {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
         .debug-item {
             display: inline-flex;
             align-items: center;
