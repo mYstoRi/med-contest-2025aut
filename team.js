@@ -366,26 +366,18 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     }
 
     // Sort dates and calculate cumulative totals for each team
-    const parseDate = (d) => {
-        const parts = d.split('/');
-        const month = parseInt(parts[0]);
-        const day = parseInt(parts[1]);
-        // Handle year wrap (1/x is 2026, 12/x is 2025)
-        const year = month < 6 ? 2026 : 2025;
-        return new Date(year, month - 1, day);
-    };
-
-    const today = new Date();
-    today.setHours(23, 59, 59, 999); // End of today
-
     for (const teamName of Object.keys(teamDailyScores)) {
         const team = teamDailyScores[teamName];
 
-        // Sort dates chronologically
-        team.dates.sort((a, b) => parseDate(a) - parseDate(b));
-
-        // Filter to only show dates up to today
-        team.dates = team.dates.filter(d => parseDate(d) <= today);
+        // Simple date sort (MM/DD format)
+        team.dates.sort((a, b) => {
+            const [am, ad] = a.split('/').map(Number);
+            const [bm, bd] = b.split('/').map(Number);
+            // Handle year wrap: Dec is 2025, Jan is 2026
+            const aVal = (am < 6 ? am + 12 : am) * 100 + ad;
+            const bVal = (bm < 6 ? bm + 12 : bm) * 100 + bd;
+            return aVal - bVal;
+        });
 
         // Calculate cumulative scores
         team.cumulative = [];
@@ -397,11 +389,9 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
             runningPrac += dayData?.practice || 0;
             runningClass += dayData?.class || 0;
 
-            const dayTotal = (dayData?.meditation || 0) + (dayData?.practice || 0) + (dayData?.class || 0);
-
             team.cumulative.push({
                 date,
-                daily: dayTotal,
+                daily: (dayData?.meditation || 0) + (dayData?.practice || 0) + (dayData?.class || 0),
                 cumulative: runningMed + runningPrac + runningClass,
                 meditation: dayData?.meditation || 0,
                 practice: dayData?.practice || 0,
