@@ -297,115 +297,103 @@ function calculateStreaks(dailyData) {
 
     return { current: currentStreak, longest: longestStreak };
 }
-
 // ========================================
-// Heatmap Rendering
+// Weekly Summary Cards Rendering
 // ========================================
-function renderHeatmap(dailyData) {
+function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
     // Competition period: Dec 8, 2025 to Jan 25, 2026
     const startDate = new Date(2025, 11, 8); // Dec 8, 2025
     const endDate = new Date(2026, 0, 25);   // Jan 25, 2026
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
-    // Build array of all days in the period
-    const days = [];
-    const current = new Date(startDate);
-    while (current <= endDate) {
-        const month = current.getMonth() + 1;
-        const day = current.getDate();
-        const dateStr = `${month}/${day}`;
-        const minutes = dailyData[dateStr] || 0;
-
-        days.push({
-            date: new Date(current),
-            dateStr,
-            minutes,
-            dayOfWeek: current.getDay() // 0 = Sunday
-        });
-        current.setDate(current.getDate() + 1);
-    }
-
-    // Find max minutes for intensity scaling
-    const maxMinutes = Math.max(...days.map(d => d.minutes), 1);
-
-    // Get intensity level (0-4)
-    const getLevel = (minutes) => {
-        if (minutes === 0) return 0;
-        const pct = minutes / maxMinutes;
-        if (pct <= 0.25) return 1;
-        if (pct <= 0.5) return 2;
-        if (pct <= 0.75) return 3;
-        return 4;
-    };
-
-    // Build weeks (columns)
+    // Build weeks array
     const weeks = [];
-    let currentWeek = [];
+    let currentWeekStart = new Date(startDate);
+    let weekNum = 1;
 
-    // Add empty cells for days before start (to align to correct day of week)
-    for (let i = 0; i < days[0].dayOfWeek; i++) {
-        currentWeek.push(null);
-    }
+    while (currentWeekStart <= endDate) {
+        const weekDays = [];
 
-    for (const day of days) {
-        currentWeek.push(day);
-        if (day.dayOfWeek === 6) { // Saturday = end of week
-            weeks.push(currentWeek);
-            currentWeek = [];
+        for (let i = 0; i < 7; i++) {
+            const dayDate = new Date(currentWeekStart);
+            dayDate.setDate(dayDate.getDate() + i);
+
+            if (dayDate > endDate) break;
+            if (dayDate < startDate) continue;
+
+            const month = dayDate.getMonth() + 1;
+            const day = dayDate.getDate();
+            const dateStr = `${month}/${day}`;
+            const minutes = dailyData[dateStr] || 0;
+
+            // Check for practice/class on this day
+            const hasPractice = practiceSessions.some(s => s.date === dateStr);
+            const hasClass = classSessions.some(s => s.date === dateStr);
+
+            weekDays.push({
+                date: dayDate,
+                dateStr,
+                dayName: dayNames[dayDate.getDay()],
+                minutes,
+                hasPractice,
+                hasClass
+            });
         }
-    }
-    if (currentWeek.length > 0) {
-        weeks.push(currentWeek);
-    }
 
-    // Month labels
-    const monthLabels = [];
-    let lastMonth = -1;
-    weeks.forEach((week, weekIdx) => {
-        const firstDay = week.find(d => d !== null);
-        if (firstDay) {
-            const month = firstDay.date.getMonth();
-            if (month !== lastMonth) {
-                const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-                monthLabels.push({ weekIdx, label: monthNames[month] });
-                lastMonth = month;
-            }
+        if (weekDays.length > 0) {
+            const weekTotal = weekDays.reduce((sum, d) => sum + d.minutes, 0);
+            const daysWithMeditation = weekDays.filter(d => d.minutes > 0).length;
+
+            weeks.push({
+                num: weekNum,
+                days: weekDays,
+                total: weekTotal,
+                meditationDays: daysWithMeditation,
+                startDate: weekDays[0].dateStr,
+                endDate: weekDays[weekDays.length - 1].dateStr
+            });
+            weekNum++;
         }
-    });
 
-    // Day labels
-    const dayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    }
 
-    return `
-        <div class="heatmap-container">
-            <div class="heatmap-months">
-                ${monthLabels.map(m => `<span style="grid-column: ${m.weekIdx + 2}">${m.label}</span>`).join('')}
+    // Find max daily minutes for bar scaling
+    const maxDailyMinutes = Math.max(...Object.values(dailyData), 30);
+
+    return weeks.map(week => `
+        <div class="week-card">
+            <div class="week-header">
+                <span class="week-title">第 ${week.num} 週</span>
+                <span class="week-dates">${week.startDate} - ${week.endDate}</span>
             </div>
-            <div class="heatmap-grid">
-                <div class="heatmap-days">
-                    ${dayLabels.filter((_, i) => i % 2 === 1).map(d => `<span>${d}</span>`).join('')}
-                </div>
-                <div class="heatmap-weeks">
-                    ${weeks.map(week => `
-                        <div class="heatmap-week">
-                            ${week.map(day => day === null
-        ? '<div class="heatmap-cell empty"></div>'
-        : `<div class="heatmap-cell level-${getLevel(day.minutes)}" title="${day.dateStr}: ${day.minutes} 分鐘"></div>`
-    ).join('')}
+            <div class="week-days">
+                ${week.days.map(day => {
+        const barHeight = day.minutes > 0 ? Math.max((day.minutes / maxDailyMinutes) * 100, 10) : 0;
+        const isToday = day.date.toDateString() === new Date().toDateString();
+        const isFuture = day.date > new Date();
+
+        return `
+                        <div class="day-column ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}">
+                            <div class="day-bar-container">
+                                ${day.minutes > 0 ? `<div class="day-bar meditation" style="height: ${barHeight}%"><span class="day-minutes">${day.minutes}</span></div>` : ''}
+                            </div>
+                            <div class="day-icons">
+                                ${day.hasPractice ? '<span title="共修">🙏</span>' : ''}
+                                ${day.hasClass ? '<span title="會館課">📚</span>' : ''}
+                            </div>
+                            <div class="day-label">${day.dayName}</div>
+                            <div class="day-date">${day.dateStr.split('/')[1]}</div>
                         </div>
-                    `).join('')}
-                </div>
+                    `;
+    }).join('')}
             </div>
-            <div class="heatmap-legend">
-                <span>少</span>
-                <div class="heatmap-cell level-0"></div>
-                <div class="heatmap-cell level-1"></div>
-                <div class="heatmap-cell level-2"></div>
-                <div class="heatmap-cell level-3"></div>
-                <div class="heatmap-cell level-4"></div>
-                <span>多</span>
+            <div class="week-summary">
+                <span>🧘 ${week.total} 分鐘</span>
+                <span>📅 ${week.meditationDays}/${week.days.length} 天</span>
             </div>
         </div>
-    `;
+    `).join('');
 }
 
 // ========================================
@@ -492,13 +480,15 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
             </div>
         </div>
         
-        <!-- Activity Heatmap -->
-        <section class="heatmap-section">
+        <!-- Weekly Activity Cards -->
+        <section class="weekly-section">
             <h2 class="section-title">
                 <span class="section-icon">📅</span>
-                禪定熱圖 Meditation Heatmap
+                每週活動 Weekly Activity
             </h2>
-            ${renderHeatmap(meditation.dailyData)}
+            <div class="weekly-cards">
+                ${renderWeeklyCards(meditation.dailyData, practice.sessions, classData.sessions)}
+            </div>
         </section>
         
         <!-- Score Breakdown -->
@@ -527,28 +517,6 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
                     <span class="legend-color class"></span>
                     <span>📚 會館課 ${Math.round(classData.total)} (${classPct.toFixed(1)}%)</span>
                 </div>
-            </div>
-        </section>
-        
-        <!-- Activity History -->
-        <section class="history-section">
-            <h2 class="section-title">
-                <span class="section-icon">📜</span>
-                活動歷史 Activity History
-            </h2>
-            
-            <div class="activity-list">
-                ${activities.length > 0 ? activities.map(a => {
-        const icon = a.type === 'meditation' ? '🧘' : a.type === 'practice' ? '🙏' : '📚';
-        const details = a.type === 'meditation' ? `${a.minutes} 分鐘` : a.type === 'practice' ? '共修' : '會館課';
-        return `
-                        <div class="activity-day">
-                            <span class="activity-date">${icon} ${a.date}</span>
-                            <span class="activity-minutes">${details}</span>
-                            <span class="activity-points">+${Math.round(a.points)}</span>
-                        </div>
-                    `;
-    }).join('') : '<p style="text-align: center; color: var(--text-muted);">暫無活動記錄</p>'}
             </div>
         </section>
     `;
