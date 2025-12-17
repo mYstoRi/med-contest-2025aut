@@ -263,10 +263,28 @@ function parseClassSheet(csvText) {
 function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     const teamDailyScores = {};
 
+    // Get all unique dates from meditation sheet (most comprehensive date list)
+    let allDates = [];
+    if (meditationCSV) {
+        const lines = meditationCSV.split('\n').map(parseCSVLine);
+        const dates = lines[1]?.slice(3) || [];
+        allDates = dates.filter(d => d && d.trim());
+    }
+
+    // Initialize all teams with all dates
+    function initTeamDates(teamName) {
+        if (!teamDailyScores[teamName]) {
+            teamDailyScores[teamName] = { dates: [...allDates], daily: {} };
+            for (const date of allDates) {
+                teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
+            }
+        }
+    }
+
     // Parse meditation daily scores
     if (meditationCSV) {
         const lines = meditationCSV.split('\n').map(parseCSVLine);
-        const dates = lines[1]?.slice(3) || []; // Row 2 has dates
+        const dates = lines[1]?.slice(3) || [];
 
         for (let i = 2; i < lines.length; i++) {
             const row = lines[i];
@@ -275,9 +293,7 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
             const teamName = row[0];
             if (!teamName) continue;
 
-            if (!teamDailyScores[teamName]) {
-                teamDailyScores[teamName] = { dates: [], daily: {} };
-            }
+            initTeamDates(teamName);
 
             // Add each day's score
             for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
@@ -285,13 +301,9 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
                 if (!date) continue;
 
                 const score = parseFloat(row[j]) || 0;
-                if (!teamDailyScores[teamName].daily[date]) {
-                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
-                    if (!teamDailyScores[teamName].dates.includes(date)) {
-                        teamDailyScores[teamName].dates.push(date);
-                    }
+                if (teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date].meditation += score;
                 }
-                teamDailyScores[teamName].daily[date].meditation += score;
             }
         }
     }
@@ -309,9 +321,7 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
             const teamName = row[0];
             if (!teamName) continue;
 
-            if (!teamDailyScores[teamName]) {
-                teamDailyScores[teamName] = { dates: [], daily: {} };
-            }
+            initTeamDates(teamName);
 
             for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
                 const date = dates[j - 3];
@@ -320,13 +330,9 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
                 const attended = parseFloat(row[j]) || 0;
                 const score = attended > 0 ? (pointsPerSession[j - 3] || 0) : 0;
 
-                if (!teamDailyScores[teamName].daily[date]) {
-                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
-                    if (!teamDailyScores[teamName].dates.includes(date)) {
-                        teamDailyScores[teamName].dates.push(date);
-                    }
+                if (teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date].practice += score;
                 }
-                teamDailyScores[teamName].daily[date].practice += score;
             }
         }
     }
@@ -343,9 +349,7 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
             const teamName = row[0];
             if (!teamName) continue;
 
-            if (!teamDailyScores[teamName]) {
-                teamDailyScores[teamName] = { dates: [], daily: {} };
-            }
+            initTeamDates(teamName);
 
             for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
                 const date = dates[j - 4];
@@ -354,42 +358,51 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
                 const attended = parseFloat(row[j]) || 0;
                 const score = attended * CONFIG.POINTS.CLASS_PER_ATTENDANCE;
 
-                if (!teamDailyScores[teamName].daily[date]) {
-                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
-                    if (!teamDailyScores[teamName].dates.includes(date)) {
-                        teamDailyScores[teamName].dates.push(date);
-                    }
+                if (teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date].class += score;
                 }
-                teamDailyScores[teamName].daily[date].class += score;
             }
         }
     }
 
-    // Sort dates for each team and calculate cumulative totals
+    // Sort dates and calculate cumulative totals for each team
+    const parseDate = (d) => {
+        const parts = d.split('/');
+        const month = parseInt(parts[0]);
+        const day = parseInt(parts[1]);
+        // Handle year wrap (1/x is 2026, 12/x is 2025)
+        const year = month < 6 ? 2026 : 2025;
+        return new Date(year, month - 1, day);
+    };
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+
     for (const teamName of Object.keys(teamDailyScores)) {
         const team = teamDailyScores[teamName];
-        // Sort dates
-        team.dates.sort((a, b) => {
-            const parseDate = (d) => {
-                const parts = d.split('/');
-                const month = parseInt(parts[0]);
-                const day = parseInt(parts[1]);
-                return month * 100 + day; // Simple comparison
-            };
-            return parseDate(a) - parseDate(b);
-        });
+
+        // Sort dates chronologically
+        team.dates.sort((a, b) => parseDate(a) - parseDate(b));
+
+        // Filter to only show dates up to today
+        team.dates = team.dates.filter(d => parseDate(d) <= today);
 
         // Calculate cumulative scores
         team.cumulative = [];
-        let runningTotal = 0;
+        let runningMed = 0, runningPrac = 0, runningClass = 0;
+
         for (const date of team.dates) {
             const dayData = team.daily[date];
+            runningMed += dayData?.meditation || 0;
+            runningPrac += dayData?.practice || 0;
+            runningClass += dayData?.class || 0;
+
             const dayTotal = (dayData?.meditation || 0) + (dayData?.practice || 0) + (dayData?.class || 0);
-            runningTotal += dayTotal;
+
             team.cumulative.push({
                 date,
                 daily: dayTotal,
-                cumulative: runningTotal,
+                cumulative: runningMed + runningPrac + runningClass,
                 meditation: dayData?.meditation || 0,
                 practice: dayData?.practice || 0,
                 class: dayData?.class || 0
