@@ -398,8 +398,13 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
                 class: dayData?.class || 0
             });
         }
+
+        // Debug logging
+        console.log(`Team: ${teamName}, Dates: ${team.dates.length}, Cumulative points:`,
+            team.cumulative.map(c => ({ date: c.date, cum: c.cumulative })));
     }
 
+    console.log('All dates from header:', allDates);
     return teamDailyScores;
 }
 
