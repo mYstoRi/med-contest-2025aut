@@ -421,7 +421,7 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
             <div class="activity-list">
                 ${activities.length > 0 ? activities.map(a => {
         const icon = a.type === 'meditation' ? '🧘' : a.type === 'practice' ? '🙏' : '📚';
-        const details = a.type === 'meditation' ? `${a.minutes} 分鐘` : '';
+        const details = a.type === 'meditation' ? `${a.minutes} 分鐘` : a.type === 'practice' ? '共修' : '會館課';
         return `
                         <div class="activity-day">
                             <span class="activity-date">${icon} ${a.date}</span>
