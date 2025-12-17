@@ -411,61 +411,64 @@ function renderChart(data) {
     // Chart dimensions
     const width = 600;
     const height = 250;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
 
-    // Get max cumulative value for y-axis
-    const maxValue = Math.max(...data.map(d => d.cumulative), 1);
-
-    // Scale functions
-    const xScale = (i) => padding.left + (i / (data.length - 1 || 1)) * chartWidth;
-    const yScale = (v) => padding.top + chartHeight - (v / maxValue) * chartHeight;
-
-    // Create cumulative path for total line
-    const linePath = data.map((d, i) => {
-        const x = xScale(i);
-        const y = yScale(d.cumulative);
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-
-    // Create area paths for stacked areas
-    const createAreaPath = (getValue) => {
-        const points = data.map((d, i) => ({ x: xScale(i), y: yScale(getValue(d)) }));
-        const topPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        const bottomPath = points.slice().reverse().map((p, i, arr) => {
-            const prevY = i === 0 ? yScale(0) : yScale(0);
-            return `L ${p.x} ${prevY}`;
-        }).join(' ');
-        return `${topPath} L ${points[points.length - 1].x} ${yScale(0)} L ${points[0].x} ${yScale(0)} Z`;
-    };
-
-    // Calculate running totals for stacked area
-    let meditationArea = '', practiceArea = '', classArea = '';
-
-    // Top area (cumulative = all three)
-    const cumulativePath = data.map((d, i) => {
-        const x = xScale(i);
-        const y = yScale(d.cumulative);
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-
-    // For stacked areas, we need to calculate running totals per category
+    // Calculate cumulative totals for each category
     let runningMed = 0, runningPrac = 0, runningClass = 0;
     const stackedData = data.map(d => {
         runningMed += d.meditation;
         runningPrac += d.practice;
         runningClass += d.class;
-        return { med: runningMed, prac: runningPrac, class: runningClass };
+        return {
+            date: d.date,
+            meditation: runningMed,
+            practice: runningPrac,
+            class: runningClass,
+            total: runningMed + runningPrac + runningClass
+        };
     });
 
-    // Create stacked area paths
-    const medPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med)}`).join(' ');
-    const pracPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med + d.prac)}`).join(' ');
-    const classPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med + d.prac + d.class)}`).join(' ');
+    // Get max cumulative value for y-axis
+    const maxValue = Math.max(...stackedData.map(d => d.total), 1);
 
-    // Close paths for area fills
-    const closePath = ` L ${xScale(data.length - 1)} ${yScale(0)} L ${xScale(0)} ${yScale(0)} Z`;
+    // Scale functions
+    const xScale = (i) => padding.left + (i / Math.max(data.length - 1, 1)) * chartWidth;
+    const yScale = (v) => padding.top + chartHeight - (v / maxValue) * chartHeight;
+
+    // Helper to create an area path between two lines
+    function createAreaPath(topValues, bottomValues) {
+        if (topValues.length === 0) return '';
+
+        // Draw top line left to right
+        let path = topValues.map((v, i) =>
+            `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`
+        ).join(' ');
+
+        // Draw bottom line right to left
+        for (let i = bottomValues.length - 1; i >= 0; i--) {
+            path += ` L ${xScale(i)} ${yScale(bottomValues[i])}`;
+        }
+
+        path += ' Z';
+        return path;
+    }
+
+    // Create stacked areas (bottom to top: meditation, practice, class)
+    const meditationTopLine = stackedData.map(d => d.meditation);
+    const practiceTopLine = stackedData.map(d => d.meditation + d.practice);
+    const classTopLine = stackedData.map(d => d.total);
+    const baseline = stackedData.map(() => 0);
+
+    const meditationAreaPath = createAreaPath(meditationTopLine, baseline);
+    const practiceAreaPath = createAreaPath(practiceTopLine, meditationTopLine);
+    const classAreaPath = createAreaPath(classTopLine, practiceTopLine);
+
+    // Create main line path (total)
+    const linePath = stackedData.map((d, i) =>
+        `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.total)}`
+    ).join(' ');
 
     // Create Y-axis labels
     const yAxisLabels = [0, maxValue / 2, maxValue].map(v => ({
@@ -486,11 +489,11 @@ function renderChart(data) {
         }
     }
 
-    // Create data point dots for last values
-    const dots = data.map((d, i) => ({
+    // Create data point dots
+    const dots = stackedData.map((d, i) => ({
         x: xScale(i),
-        y: yScale(d.cumulative),
-        value: d.cumulative,
+        y: yScale(d.total),
+        value: d.total,
         date: d.date
     }));
 
@@ -501,17 +504,17 @@ function renderChart(data) {
                 ${yAxisLabels.map(l => `<line x1="${padding.left}" y1="${l.y}" x2="${width - padding.right}" y2="${l.y}" />`).join('')}
             </g>
             
-            <!-- Stacked areas -->
-            <path class="area-meditation" d="${medPath}${closePath}" />
-            <path class="area-practice" d="${pracPath} L ${xScale(data.length - 1)} ${yScale(stackedData[stackedData.length - 1].med)} L ${xScale(0)} ${yScale(0)} Z" />
-            <path class="area-class" d="${classPath} L ${xScale(data.length - 1)} ${yScale(stackedData[stackedData.length - 1].med + stackedData[stackedData.length - 1].prac)} L ${xScale(0)} ${yScale(stackedData[0].med)} Z" />
+            <!-- Stacked areas (draw bottom to top) -->
+            <path class="area-meditation" d="${meditationAreaPath}" />
+            <path class="area-practice" d="${practiceAreaPath}" />
+            <path class="area-class" d="${classAreaPath}" />
             
             <!-- Main line -->
             <path class="chart-line" d="${linePath}" />
             
             <!-- Data points -->
             <g class="data-points">
-                ${dots.map(d => `<circle cx="${d.x}" cy="${d.y}" r="4" title="${d.date}: ${d.value}" />`).join('')}
+                ${dots.map(d => `<circle cx="${d.x}" cy="${d.y}" r="4" />`).join('')}
             </g>
             
             <!-- Y-axis labels -->
