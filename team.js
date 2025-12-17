@@ -267,8 +267,16 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     let allDates = [];
     if (meditationCSV) {
         const lines = meditationCSV.split('\n').map(parseCSVLine);
+        console.log('Meditation CSV structure:');
+        console.log('Row 0 (first 10 cols):', lines[0]?.slice(0, 10));
+        console.log('Row 1 (first 10 cols):', lines[1]?.slice(0, 10));
+        console.log('Row 2 (first 10 cols):', lines[2]?.slice(0, 10));
+        console.log('Row 3 (first 10 cols):', lines[3]?.slice(0, 10));
+
         const dates = lines[1]?.slice(3) || [];
+        console.log('Dates from row 1, cols 3+:', dates.slice(0, 10));
         allDates = dates.filter(d => d && d.trim());
+        console.log('Filtered allDates:', allDates.slice(0, 10));
     }
 
     // Initialize all teams with all dates
