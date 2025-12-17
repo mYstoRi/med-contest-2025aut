@@ -8,7 +8,7 @@ const CONFIG = {
     // Original form responses for activity feed
     SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
     FORM_RESPONSES_SHEET: '表單回應 1',
-    MEDITATION_SHEET: '禪定',  // For name-to-team mapping
+    MEDITATION_SHEET: '禪定登記',  // For name-to-team mapping
 
     // Refresh interval in milliseconds (5 minutes)
     REFRESH_INTERVAL: 5 * 60 * 1000,
