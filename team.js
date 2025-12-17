@@ -257,11 +257,11 @@ function renderTeamPage(teamData, scoreBreakdown) {
     const container = document.getElementById('teamContent');
     if (!container) return;
 
-    const maxMemberScore = Math.max(...teamData.members.map(m => m.points), 1);
-
-    // Get member breakdowns first
+    // Get member breakdowns from score sheets (not totals sheet)
     const teamName = teamData.name;
-    const memberBreakdowns = getMemberBreakdowns(teamData.members, scoreBreakdown, teamName);
+    const memberBreakdowns = getMemberBreakdowns(scoreBreakdown, teamName);
+
+    const maxMemberScore = memberBreakdowns.length > 0 ? memberBreakdowns[0].total : 1;
 
     // Calculate team totals by summing member breakdowns (more accurate)
     const meditationScore = memberBreakdowns.reduce((sum, m) => sum + m.meditation, 0);
@@ -362,24 +362,39 @@ function renderTeamPage(teamData, scoreBreakdown) {
     `;
 }
 
-function getMemberBreakdowns(members, scoreBreakdown, teamName) {
+function getMemberBreakdowns(scoreBreakdown, teamName) {
+    // Get member lists from all three score sheets
     const meditationMembers = scoreBreakdown.meditation[teamName]?.members || {};
     const practiceMembers = scoreBreakdown.practice[teamName]?.members || {};
     const classMembers = scoreBreakdown.class[teamName]?.members || {};
 
-    return members.map(member => {
-        const meditation = meditationMembers[member.name] || 0;
-        const practice = practiceMembers[member.name] || 0;
-        const classScore = classMembers[member.name] || 0;
+    // Build a complete member list from all sources
+    const allMemberNames = new Set([
+        ...Object.keys(meditationMembers),
+        ...Object.keys(practiceMembers),
+        ...Object.keys(classMembers)
+    ]);
+
+    // Calculate breakdown for each member
+    const memberBreakdowns = Array.from(allMemberNames).map(name => {
+        const meditation = meditationMembers[name] || 0;
+        const practice = practiceMembers[name] || 0;
+        const classScore = classMembers[name] || 0;
+        const total = meditation + practice + classScore;
 
         return {
-            name: member.name,
+            name,
             meditation,
             practice,
             class: classScore,
-            total: member.points // Use the official total from totals sheet
+            total
         };
     });
+
+    // Sort by total points (descending)
+    memberBreakdowns.sort((a, b) => b.total - a.total);
+
+    return memberBreakdowns;
 }
 
 function showError(message) {
