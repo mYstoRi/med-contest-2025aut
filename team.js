@@ -259,20 +259,20 @@ function renderTeamPage(teamData, scoreBreakdown) {
 
     const maxMemberScore = Math.max(...teamData.members.map(m => m.points), 1);
 
-    // Calculate score breakdown for this team
+    // Get member breakdowns first
     const teamName = teamData.name;
-    const meditationScore = scoreBreakdown.meditation[teamName]?.total || 0;
-    const practiceScore = scoreBreakdown.practice[teamName]?.total || 0;
-    const classScore = scoreBreakdown.class[teamName]?.total || 0;
+    const memberBreakdowns = getMemberBreakdowns(teamData.members, scoreBreakdown, teamName);
+
+    // Calculate team totals by summing member breakdowns (more accurate)
+    const meditationScore = memberBreakdowns.reduce((sum, m) => sum + m.meditation, 0);
+    const practiceScore = memberBreakdowns.reduce((sum, m) => sum + m.practice, 0);
+    const classScore = memberBreakdowns.reduce((sum, m) => sum + m.class, 0);
     const totalFromSources = meditationScore + practiceScore + classScore;
 
     // Calculate percentages
     const meditationPct = totalFromSources > 0 ? (meditationScore / totalFromSources * 100) : 0;
     const practicePct = totalFromSources > 0 ? (practiceScore / totalFromSources * 100) : 0;
     const classPct = totalFromSources > 0 ? (classScore / totalFromSources * 100) : 0;
-
-    // Get member breakdowns
-    const memberBreakdowns = getMemberBreakdowns(teamData.members, scoreBreakdown, teamName);
 
     container.innerHTML = `
         <div class="${teamData.color}">
