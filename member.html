@@ -19,9 +19,23 @@
             margin-bottom: var(--spacing-lg);
         }
 
+        @media (max-width: 600px) {
+            .member-header {
+                padding: var(--spacing-md) var(--spacing-sm);
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
         .member-avatar {
             font-size: 4rem;
             margin-bottom: var(--spacing-sm);
+        }
+
+        @media (max-width: 600px) {
+            .member-avatar {
+                font-size: 2.5rem;
+                margin-bottom: var(--spacing-xs);
+            }
         }
 
         .member-name-title {
@@ -30,10 +44,22 @@
             margin-bottom: var(--spacing-xs);
         }
 
+        @media (max-width: 600px) {
+            .member-name-title {
+                font-size: 1.4rem;
+            }
+        }
+
         .member-team-link {
             color: var(--text-secondary);
             text-decoration: none;
             transition: color 0.3s ease;
+        }
+
+        @media (max-width: 600px) {
+            .member-team-link {
+                font-size: 0.85rem;
+            }
         }
 
         .member-team-link:hover {
@@ -50,6 +76,13 @@
             font-size: 0.9rem;
         }
 
+        @media (max-width: 600px) {
+            .member-rank-badge {
+                font-size: 0.75rem;
+                padding: 4px var(--spacing-xs);
+            }
+        }
+
         /* Stats Grid */
         .member-stats {
             display: grid;
@@ -60,7 +93,8 @@
 
         @media (max-width: 600px) {
             .member-stats {
-                grid-template-columns: 1fr;
+                gap: var(--spacing-xs);
+                margin-bottom: var(--spacing-md);
             }
         }
 
@@ -72,9 +106,23 @@
             text-align: center;
         }
 
+        @media (max-width: 600px) {
+            .member-stat-card {
+                padding: var(--spacing-sm);
+                border-radius: var(--radius-sm);
+            }
+        }
+
         .member-stat-icon {
             font-size: 2rem;
             margin-bottom: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-icon {
+                font-size: 1.2rem;
+                margin-bottom: 2px;
+            }
         }
 
         .member-stat-value {
@@ -83,9 +131,23 @@
             margin-bottom: var(--spacing-xs);
         }
 
+        @media (max-width: 600px) {
+            .member-stat-value {
+                font-size: 1rem;
+                margin-bottom: 2px;
+            }
+        }
+
         .member-stat-label {
             color: var(--text-muted);
             font-size: 0.85rem;
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-label {
+                font-size: 0.6rem;
+                line-height: 1.2;
+            }
         }
 
         /* Score Breakdown */
@@ -208,7 +270,8 @@
 
         @media (max-width: 600px) {
             .streak-container {
-                flex-direction: column;
+                gap: var(--spacing-xs);
+                margin-bottom: var(--spacing-md);
             }
         }
 
@@ -221,6 +284,13 @@
             text-align: center;
         }
 
+        @media (max-width: 600px) {
+            .streak-card {
+                padding: var(--spacing-sm);
+                border-radius: var(--radius-sm);
+            }
+        }
+
         .streak-card.current {
             border-color: #f59e0b;
             background: rgba(245, 158, 11, 0.1);
@@ -231,9 +301,21 @@
             font-weight: 700;
         }
 
+        @media (max-width: 600px) {
+            .streak-value {
+                font-size: 1.8rem;
+            }
+        }
+
         .streak-label {
             color: var(--text-muted);
             margin-top: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .streak-label {
+                font-size: 0.7rem;
+            }
         }
 
         /* Back Link */
