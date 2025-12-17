@@ -317,6 +317,81 @@
             font-weight: 600;
         }
 
+        /* Chart Section */
+        .chart-section {
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        .chart-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .score-chart {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .chart-empty {
+            text-align: center;
+            padding: var(--spacing-lg);
+            color: var(--text-muted);
+        }
+
+        .grid-lines line {
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 1;
+        }
+
+        .area-meditation {
+            fill: rgba(139, 92, 246, 0.4);
+        }
+
+        .area-practice {
+            fill: rgba(16, 185, 129, 0.4);
+        }
+
+        .area-class {
+            fill: rgba(245, 158, 11, 0.4);
+        }
+
+        .chart-line {
+            fill: none;
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .data-points circle {
+            fill: var(--text-primary);
+            stroke: var(--bg-dark);
+            stroke-width: 2;
+        }
+
+        .y-labels text {
+            fill: var(--text-muted);
+            font-size: 12px;
+            text-anchor: end;
+        }
+
+        .x-labels text {
+            fill: var(--text-muted);
+            font-size: 11px;
+            text-anchor: middle;
+        }
+
+        [data-theme="light"] .grid-lines line {
+            stroke: rgba(0, 0, 0, 0.1);
+        }
+
         @media (max-width: 600px) {
             .legend-item {
                 min-width: 100%;
@@ -325,6 +400,10 @@
             .member-breakdown-debug {
                 flex-wrap: wrap;
                 gap: var(--spacing-xs);
+            }
+
+            .score-chart {
+                max-width: 100%;
             }
         }
     </style>

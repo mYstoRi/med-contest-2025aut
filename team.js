@@ -100,10 +100,19 @@ async function fetchAllScoreData() {
         fetchSheetData(CONFIG.SHEETS.CLASS),
     ]);
 
+    // Parse member totals
+    const meditation = meditationCSV ? parseMeditationSheet(meditationCSV) : {};
+    const practice = practiceCSV ? parsePracticeSheet(practiceCSV) : {};
+    const classData = classCSV ? parseClassSheet(classCSV) : {};
+
+    // Parse daily data for charts
+    const dailyData = parseDailyScores(meditationCSV, practiceCSV, classCSV);
+
     return {
-        meditation: meditationCSV ? parseMeditationSheet(meditationCSV) : {},
-        practice: practiceCSV ? parsePracticeSheet(practiceCSV) : {},
-        class: classCSV ? parseClassSheet(classCSV) : {},
+        meditation,
+        practice,
+        class: classData,
+        daily: dailyData
     };
 }
 
@@ -250,6 +259,274 @@ function parseClassSheet(csvText) {
     return teamScores;
 }
 
+// Parse daily scores from all sheets for time-series chart
+function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
+    const teamDailyScores = {};
+
+    // Parse meditation daily scores
+    if (meditationCSV) {
+        const lines = meditationCSV.split('\n').map(parseCSVLine);
+        const dates = lines[1]?.slice(3) || []; // Row 2 has dates
+
+        for (let i = 2; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 4) continue;
+
+            const teamName = row[0];
+            if (!teamName) continue;
+
+            if (!teamDailyScores[teamName]) {
+                teamDailyScores[teamName] = { dates: [], daily: {} };
+            }
+
+            // Add each day's score
+            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                const date = dates[j - 3];
+                if (!date) continue;
+
+                const score = parseFloat(row[j]) || 0;
+                if (!teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
+                    if (!teamDailyScores[teamName].dates.includes(date)) {
+                        teamDailyScores[teamName].dates.push(date);
+                    }
+                }
+                teamDailyScores[teamName].daily[date].meditation += score;
+            }
+        }
+    }
+
+    // Parse practice daily scores  
+    if (practiceCSV) {
+        const lines = practiceCSV.split('\n').map(parseCSVLine);
+        const pointsPerSession = lines[0]?.slice(3).map(p => parseFloat(p) || 0) || [];
+        const dates = lines[1]?.slice(3) || [];
+
+        for (let i = 2; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 4) continue;
+
+            const teamName = row[0];
+            if (!teamName) continue;
+
+            if (!teamDailyScores[teamName]) {
+                teamDailyScores[teamName] = { dates: [], daily: {} };
+            }
+
+            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                const date = dates[j - 3];
+                if (!date) continue;
+
+                const attended = parseFloat(row[j]) || 0;
+                const score = attended > 0 ? (pointsPerSession[j - 3] || 0) : 0;
+
+                if (!teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
+                    if (!teamDailyScores[teamName].dates.includes(date)) {
+                        teamDailyScores[teamName].dates.push(date);
+                    }
+                }
+                teamDailyScores[teamName].daily[date].practice += score;
+            }
+        }
+    }
+
+    // Parse class daily scores (weekly dates)
+    if (classCSV) {
+        const lines = classCSV.split('\n').map(parseCSVLine);
+        const dates = lines[1]?.slice(4) || []; // Skip 總計 column
+
+        for (let i = 2; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 5) continue;
+
+            const teamName = row[0];
+            if (!teamName) continue;
+
+            if (!teamDailyScores[teamName]) {
+                teamDailyScores[teamName] = { dates: [], daily: {} };
+            }
+
+            for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                const date = dates[j - 4];
+                if (!date) continue;
+
+                const attended = parseFloat(row[j]) || 0;
+                const score = attended * CONFIG.POINTS.CLASS_PER_ATTENDANCE;
+
+                if (!teamDailyScores[teamName].daily[date]) {
+                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: 0, class: 0 };
+                    if (!teamDailyScores[teamName].dates.includes(date)) {
+                        teamDailyScores[teamName].dates.push(date);
+                    }
+                }
+                teamDailyScores[teamName].daily[date].class += score;
+            }
+        }
+    }
+
+    // Sort dates for each team and calculate cumulative totals
+    for (const teamName of Object.keys(teamDailyScores)) {
+        const team = teamDailyScores[teamName];
+        // Sort dates
+        team.dates.sort((a, b) => {
+            const parseDate = (d) => {
+                const parts = d.split('/');
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                return month * 100 + day; // Simple comparison
+            };
+            return parseDate(a) - parseDate(b);
+        });
+
+        // Calculate cumulative scores
+        team.cumulative = [];
+        let runningTotal = 0;
+        for (const date of team.dates) {
+            const dayData = team.daily[date];
+            const dayTotal = (dayData?.meditation || 0) + (dayData?.practice || 0) + (dayData?.class || 0);
+            runningTotal += dayTotal;
+            team.cumulative.push({
+                date,
+                daily: dayTotal,
+                cumulative: runningTotal,
+                meditation: dayData?.meditation || 0,
+                practice: dayData?.practice || 0,
+                class: dayData?.class || 0
+            });
+        }
+    }
+
+    return teamDailyScores;
+}
+
+// ========================================
+// Chart Rendering
+// ========================================
+function renderChart(data) {
+    if (!data || data.length === 0) {
+        return '<div class="chart-empty">暫無數據 No data yet</div>';
+    }
+
+    // Chart dimensions
+    const width = 600;
+    const height = 250;
+    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    // Get max cumulative value for y-axis
+    const maxValue = Math.max(...data.map(d => d.cumulative), 1);
+
+    // Scale functions
+    const xScale = (i) => padding.left + (i / (data.length - 1 || 1)) * chartWidth;
+    const yScale = (v) => padding.top + chartHeight - (v / maxValue) * chartHeight;
+
+    // Create cumulative path for total line
+    const linePath = data.map((d, i) => {
+        const x = xScale(i);
+        const y = yScale(d.cumulative);
+        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    // Create area paths for stacked areas
+    const createAreaPath = (getValue) => {
+        const points = data.map((d, i) => ({ x: xScale(i), y: yScale(getValue(d)) }));
+        const topPath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const bottomPath = points.slice().reverse().map((p, i, arr) => {
+            const prevY = i === 0 ? yScale(0) : yScale(0);
+            return `L ${p.x} ${prevY}`;
+        }).join(' ');
+        return `${topPath} L ${points[points.length - 1].x} ${yScale(0)} L ${points[0].x} ${yScale(0)} Z`;
+    };
+
+    // Calculate running totals for stacked area
+    let meditationArea = '', practiceArea = '', classArea = '';
+
+    // Top area (cumulative = all three)
+    const cumulativePath = data.map((d, i) => {
+        const x = xScale(i);
+        const y = yScale(d.cumulative);
+        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    // For stacked areas, we need to calculate running totals per category
+    let runningMed = 0, runningPrac = 0, runningClass = 0;
+    const stackedData = data.map(d => {
+        runningMed += d.meditation;
+        runningPrac += d.practice;
+        runningClass += d.class;
+        return { med: runningMed, prac: runningPrac, class: runningClass };
+    });
+
+    // Create stacked area paths
+    const medPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med)}`).join(' ');
+    const pracPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med + d.prac)}`).join(' ');
+    const classPath = stackedData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(d.med + d.prac + d.class)}`).join(' ');
+
+    // Close paths for area fills
+    const closePath = ` L ${xScale(data.length - 1)} ${yScale(0)} L ${xScale(0)} ${yScale(0)} Z`;
+
+    // Create Y-axis labels
+    const yAxisLabels = [0, maxValue / 2, maxValue].map(v => ({
+        y: yScale(v),
+        label: Math.round(v).toLocaleString()
+    }));
+
+    // Create X-axis labels (show first, middle, last)
+    const xLabels = [];
+    if (data.length > 0) {
+        xLabels.push({ x: xScale(0), label: data[0].date });
+        if (data.length > 2) {
+            const mid = Math.floor(data.length / 2);
+            xLabels.push({ x: xScale(mid), label: data[mid].date });
+        }
+        if (data.length > 1) {
+            xLabels.push({ x: xScale(data.length - 1), label: data[data.length - 1].date });
+        }
+    }
+
+    // Create data point dots for last values
+    const dots = data.map((d, i) => ({
+        x: xScale(i),
+        y: yScale(d.cumulative),
+        value: d.cumulative,
+        date: d.date
+    }));
+
+    return `
+        <svg viewBox="0 0 ${width} ${height}" class="score-chart">
+            <!-- Grid lines -->
+            <g class="grid-lines">
+                ${yAxisLabels.map(l => `<line x1="${padding.left}" y1="${l.y}" x2="${width - padding.right}" y2="${l.y}" />`).join('')}
+            </g>
+            
+            <!-- Stacked areas -->
+            <path class="area-meditation" d="${medPath}${closePath}" />
+            <path class="area-practice" d="${pracPath} L ${xScale(data.length - 1)} ${yScale(stackedData[stackedData.length - 1].med)} L ${xScale(0)} ${yScale(0)} Z" />
+            <path class="area-class" d="${classPath} L ${xScale(data.length - 1)} ${yScale(stackedData[stackedData.length - 1].med + stackedData[stackedData.length - 1].prac)} L ${xScale(0)} ${yScale(stackedData[0].med)} Z" />
+            
+            <!-- Main line -->
+            <path class="chart-line" d="${linePath}" />
+            
+            <!-- Data points -->
+            <g class="data-points">
+                ${dots.map(d => `<circle cx="${d.x}" cy="${d.y}" r="4" title="${d.date}: ${d.value}" />`).join('')}
+            </g>
+            
+            <!-- Y-axis labels -->
+            <g class="y-labels">
+                ${yAxisLabels.map(l => `<text x="${padding.left - 10}" y="${l.y + 4}">${l.label}</text>`).join('')}
+            </g>
+            
+            <!-- X-axis labels -->
+            <g class="x-labels">
+                ${xLabels.map(l => `<text x="${l.x}" y="${height - 10}">${l.label}</text>`).join('')}
+            </g>
+        </svg>
+    `;
+}
+
 // ========================================
 // Rendering
 // ========================================
@@ -260,6 +537,9 @@ function renderTeamPage(teamData, scoreBreakdown) {
     // Get member breakdowns from score sheets (not totals sheet)
     const teamName = teamData.name;
     const memberBreakdowns = getMemberBreakdowns(scoreBreakdown, teamName);
+
+    // Get daily data for chart
+    const dailyData = scoreBreakdown.daily?.[teamName]?.cumulative || [];
 
     const maxMemberScore = memberBreakdowns.length > 0 ? memberBreakdowns[0].total : 1;
 
@@ -314,6 +594,18 @@ function renderTeamPage(teamData, scoreBreakdown) {
                         <span class="legend-label">📚 會館課 Classes</span>
                         <span class="legend-value">${classScore.toLocaleString()} (${classPct.toFixed(1)}%)</span>
                     </div>
+                </div>
+            </section>
+            
+            <!-- Time vs Score Chart -->
+            <section class="chart-section">
+                <h2 class="section-title">
+                    <span class="section-icon">📈</span>
+                    積分趨勢 Score Trend
+                </h2>
+                
+                <div id="scoreChart" class="chart-container">
+                    ${renderChart(dailyData)}
                 </div>
             </section>
             
