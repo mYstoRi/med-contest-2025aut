@@ -730,6 +730,17 @@ body {
   font-weight: 600;
 }
 
+.activity-name-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.activity-name-link:hover {
+  color: #8b5cf6;
+  text-decoration: underline;
+}
+
 .activity-details {
   font-size: 0.85rem;
   color: var(--text-muted);

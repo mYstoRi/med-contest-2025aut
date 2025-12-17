@@ -498,11 +498,15 @@ function renderActivityFeed(activities) {
     container.innerHTML = activities.map(activity => {
         const config = getTeamConfig(activity.team);
         const streakBadge = activity.streak > 0 ? `<span class="activity-streak" title="${activity.streak} 天連續禪定">🔥${activity.streak}</span>` : '';
+        const memberUrl = `./member.html?name=${encodeURIComponent(activity.name)}&team=${encodeURIComponent(activity.team)}`;
+        const nameDisplay = activity.name
+            ? `<a href="${memberUrl}" class="activity-name-link">${activity.name}</a>`
+            : '匿名';
         return `
       <div class="activity-item ${config.color}">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
-          <div class="activity-name">${activity.name || '匿名'}${streakBadge}</div>
+          <div class="activity-name">${nameDisplay}${streakBadge}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
         <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
