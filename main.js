@@ -290,6 +290,71 @@ function processFormResponses(rows) {
         return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
     });
 
+    // Calculate streaks for each member
+    const memberDates = {}; // name -> Set of date strings
+    for (const activity of recentActivities) {
+        const name = activity.name;
+        if (!name) continue;
+        if (!memberDates[name]) memberDates[name] = new Set();
+        // Parse date to normalized format
+        const date = activity.date;
+        if (date) memberDates[name].add(date);
+    }
+
+    // Calculate current streak for each member
+    const memberStreaks = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    for (const [name, dates] of Object.entries(memberDates)) {
+        // Parse dates to Date objects
+        const parsedDates = Array.from(dates).map(d => {
+            const parts = d.split('/');
+            const month = parseInt(parts[1]) - 1;
+            const day = parseInt(parts[2]);
+            const year = parseInt(parts[0]);
+            return new Date(year, month, day);
+        }).sort((a, b) => a - b);
+
+        if (parsedDates.length === 0) {
+            memberStreaks[name] = 0;
+            continue;
+        }
+
+        const lastDate = parsedDates[parsedDates.length - 1];
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate < yesterday) {
+            memberStreaks[name] = 0;
+            continue;
+        }
+
+        // Count consecutive days backwards
+        let streak = 1;
+        for (let i = parsedDates.length - 2; i >= 0; i--) {
+            const curr = parsedDates[i + 1];
+            const prev = parsedDates[i];
+            prev.setHours(0, 0, 0, 0);
+            curr.setHours(0, 0, 0, 0);
+            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+            if (diffDays === 1) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+
+        memberStreaks[name] = streak;
+    }
+
+    // Add streak to each activity
+    for (const activity of recentActivities) {
+        activity.streak = memberStreaks[activity.name] || 0;
+    }
+
     return {
         totalMinutes,
         totalSessions,
@@ -432,11 +497,12 @@ function renderActivityFeed(activities) {
 
     container.innerHTML = activities.map(activity => {
         const config = getTeamConfig(activity.team);
+        const streakBadge = activity.streak > 0 ? `<span class="activity-streak" title="${activity.streak} 天連續禪定">🔥${activity.streak}</span>` : '';
         return `
       <div class="activity-item ${config.color}">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
-          <div class="activity-name">${activity.name || '匿名'}</div>
+          <div class="activity-name">${activity.name || '匿名'}${streakBadge}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
         <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>

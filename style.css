@@ -718,6 +718,18 @@ body {
   font-weight: 500;
 }
 
+.activity-streak {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 5px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
 .activity-details {
   font-size: 0.85rem;
   color: var(--text-muted);
