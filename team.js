@@ -263,20 +263,12 @@ function parseClassSheet(csvText) {
 function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     const teamDailyScores = {};
 
-    // Get all unique dates from meditation sheet (most comprehensive date list)
+    // Get all unique dates from meditation sheet (row 0 has dates, starting at col 3)
     let allDates = [];
     if (meditationCSV) {
         const lines = meditationCSV.split('\n').map(parseCSVLine);
-        console.log('Meditation CSV structure:');
-        console.log('Row 0 (first 10 cols):', lines[0]?.slice(0, 10));
-        console.log('Row 1 (first 10 cols):', lines[1]?.slice(0, 10));
-        console.log('Row 2 (first 10 cols):', lines[2]?.slice(0, 10));
-        console.log('Row 3 (first 10 cols):', lines[3]?.slice(0, 10));
-
-        const dates = lines[1]?.slice(3) || [];
-        console.log('Dates from row 1, cols 3+:', dates.slice(0, 10));
+        const dates = lines[0]?.slice(3) || []; // Row 0 has dates
         allDates = dates.filter(d => d && d.trim());
-        console.log('Filtered allDates:', allDates.slice(0, 10));
     }
 
     // Initialize all teams with all dates
@@ -292,9 +284,9 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     // Parse meditation daily scores
     if (meditationCSV) {
         const lines = meditationCSV.split('\n').map(parseCSVLine);
-        const dates = lines[1]?.slice(3) || [];
+        const dates = lines[0]?.slice(3) || []; // Row 0 has dates
 
-        for (let i = 2; i < lines.length; i++) {
+        for (let i = 1; i < lines.length; i++) { // Data starts at row 1
             const row = lines[i];
             if (!row || row.length < 4) continue;
 
@@ -319,10 +311,11 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     // Parse practice daily scores  
     if (practiceCSV) {
         const lines = practiceCSV.split('\n').map(parseCSVLine);
-        const pointsPerSession = lines[0]?.slice(3).map(p => parseFloat(p) || 0) || [];
-        const dates = lines[1]?.slice(3) || [];
+        // For practice sheet, row 0 might have point values, row 1 has dates
+        // Let's use same logic as meditation - row 0 for dates
+        const dates = lines[0]?.slice(3) || [];
 
-        for (let i = 2; i < lines.length; i++) {
+        for (let i = 1; i < lines.length; i++) { // Data starts at row 1
             const row = lines[i];
             if (!row || row.length < 4) continue;
 
@@ -348,9 +341,9 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     // Parse class daily scores (weekly dates)
     if (classCSV) {
         const lines = classCSV.split('\n').map(parseCSVLine);
-        const dates = lines[1]?.slice(4) || []; // Skip 總計 column
+        const dates = lines[0]?.slice(4) || []; // Row 0 has dates, skip 總計 column
 
-        for (let i = 2; i < lines.length; i++) {
+        for (let i = 1; i < lines.length; i++) { // Data starts at row 1
             const row = lines[i];
             if (!row || row.length < 5) continue;
 
