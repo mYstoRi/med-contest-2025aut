@@ -377,10 +377,11 @@
             flex-direction: column;
             align-items: center;
             gap: 2px;
+            min-width: 0;
         }
 
         .day-column.today {
-            background: rgba(139, 92, 246, 0.1);
+            background: rgba(139, 92, 246, 0.15);
             border-radius: var(--radius-sm);
             padding: 4px 2px;
             margin: -4px -2px;
@@ -390,44 +391,45 @@
             opacity: 0.4;
         }
 
-        .day-bar-container {
-            width: 100%;
-            height: 60px;
+        .day-scores {
             display: flex;
-            align-items: flex-end;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-height: 50px;
             justify-content: center;
         }
 
-        @media (max-width: 600px) {
-            .day-bar-container {
-                height: 45px;
-            }
-        }
-
-        .day-bar {
-            width: 80%;
-            max-width: 30px;
-            border-radius: 4px 4px 0 0;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 2px;
-            min-height: 10px;
-        }
-
-        .day-bar.meditation {
-            background: linear-gradient(to top, #8b5cf6, #a78bfa);
-        }
-
-        .day-minutes {
-            font-size: 0.6rem;
-            color: white;
+        .day-score {
+            font-size: 0.75rem;
             font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .day-score.meditation {
+            color: #8b5cf6;
+        }
+
+        .day-score.practice {
+            color: #10b981;
+        }
+
+        .day-score.class {
+            color: #f59e0b;
+        }
+
+        .day-score.empty {
+            color: var(--text-muted);
+            font-size: 0.7rem;
         }
 
         @media (max-width: 600px) {
-            .day-minutes {
-                font-size: 0.5rem;
+            .day-score {
+                font-size: 0.6rem;
+            }
+
+            .day-scores {
+                min-height: 40px;
             }
         }
 
@@ -437,6 +439,7 @@
             gap: 2px;
             font-size: 0.7rem;
         }
+
 
         .day-label {
             font-size: 0.7rem;

@@ -304,6 +304,7 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
     // Competition period: Dec 8, 2025 to Jan 25, 2026
     const startDate = new Date(2025, 11, 8); // Dec 8, 2025
     const endDate = new Date(2026, 0, 25);   // Jan 25, 2026
+    const today = new Date();
     const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
     // Build weeks array
@@ -313,6 +314,11 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
 
     while (currentWeekStart <= endDate) {
         const weekDays = [];
+        const weekEndDate = new Date(currentWeekStart);
+        weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+        // Skip weeks entirely in the future
+        if (currentWeekStart > today) break;
 
         for (let i = 0; i < 7; i++) {
             const dayDate = new Date(currentWeekStart);
@@ -326,29 +332,34 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
             const dateStr = `${month}/${day}`;
             const minutes = dailyData[dateStr] || 0;
 
-            // Check for practice/class on this day
-            const hasPractice = practiceSessions.some(s => s.date === dateStr);
-            const hasClass = classSessions.some(s => s.date === dateStr);
+            // Get practice points for this day
+            const practiceSession = practiceSessions.find(s => s.date === dateStr);
+            const practicePoints = practiceSession ? practiceSession.points : 0;
+
+            // Get class count for this day
+            const classSession = classSessions.find(s => s.date === dateStr);
+            const classPoints = classSession ? classSession.count * 50 : 0;
 
             weekDays.push({
                 date: dayDate,
                 dateStr,
                 dayName: dayNames[dayDate.getDay()],
                 minutes,
-                hasPractice,
-                hasClass
+                practicePoints,
+                classPoints,
+                isFuture: dayDate > today
             });
         }
 
         if (weekDays.length > 0) {
-            const weekTotal = weekDays.reduce((sum, d) => sum + d.minutes, 0);
-            const daysWithMeditation = weekDays.filter(d => d.minutes > 0).length;
+            const weekTotal = weekDays.reduce((sum, d) => sum + d.minutes + d.practicePoints + d.classPoints, 0);
+            const daysWithActivity = weekDays.filter(d => d.minutes > 0 || d.practicePoints > 0 || d.classPoints > 0).length;
 
             weeks.push({
                 num: weekNum,
                 days: weekDays,
                 total: weekTotal,
-                meditationDays: daysWithMeditation,
+                activeDays: daysWithActivity,
                 startDate: weekDays[0].dateStr,
                 endDate: weekDays[weekDays.length - 1].dateStr
             });
@@ -358,9 +369,6 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
         currentWeekStart.setDate(currentWeekStart.getDate() + 7);
     }
 
-    // Find max daily minutes for bar scaling
-    const maxDailyMinutes = Math.max(...Object.values(dailyData), 30);
-
     return weeks.map(week => `
         <div class="week-card">
             <div class="week-header">
@@ -369,18 +377,17 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
             </div>
             <div class="week-days">
                 ${week.days.map(day => {
-        const barHeight = day.minutes > 0 ? Math.max((day.minutes / maxDailyMinutes) * 100, 10) : 0;
         const isToday = day.date.toDateString() === new Date().toDateString();
-        const isFuture = day.date > new Date();
+        const hasActivity = day.minutes > 0 || day.practicePoints > 0 || day.classPoints > 0;
 
         return `
-                        <div class="day-column ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''}">
-                            <div class="day-bar-container">
-                                ${day.minutes > 0 ? `<div class="day-bar meditation" style="height: ${barHeight}%"><span class="day-minutes">${day.minutes}</span></div>` : ''}
-                            </div>
-                            <div class="day-icons">
-                                ${day.hasPractice ? '<span title="共修">🙏</span>' : ''}
-                                ${day.hasClass ? '<span title="會館課">📚</span>' : ''}
+                        <div class="day-column ${isToday ? 'today' : ''} ${day.isFuture ? 'future' : ''}">
+                            <div class="day-scores">
+                                ${day.minutes > 0 ? `<div class="day-score meditation" title="禪定">🧘${day.minutes}</div>` : ''}
+                                ${day.practicePoints > 0 ? `<div class="day-score practice" title="共修">🙏${day.practicePoints}</div>` : ''}
+                                ${day.classPoints > 0 ? `<div class="day-score class" title="會館課">📚${day.classPoints}</div>` : ''}
+                                ${!hasActivity && !day.isFuture ? '<div class="day-score empty">-</div>' : ''}
+                                ${day.isFuture ? '<div class="day-score empty">...</div>' : ''}
                             </div>
                             <div class="day-label">${day.dayName}</div>
                             <div class="day-date">${day.dateStr.split('/')[1]}</div>
@@ -389,8 +396,8 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
     }).join('')}
             </div>
             <div class="week-summary">
-                <span>🧘 ${week.total} 分鐘</span>
-                <span>📅 ${week.meditationDays}/${week.days.length} 天</span>
+                <span>💎 ${week.total} 分</span>
+                <span>📅 ${week.activeDays}/${week.days.length} 天</span>
             </div>
         </div>
     `).join('');
@@ -480,17 +487,6 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
             </div>
         </div>
         
-        <!-- Weekly Activity Cards -->
-        <section class="weekly-section">
-            <h2 class="section-title">
-                <span class="section-icon">📅</span>
-                每週活動 Weekly Activity
-            </h2>
-            <div class="weekly-cards">
-                ${renderWeeklyCards(meditation.dailyData, practice.sessions, classData.sessions)}
-            </div>
-        </section>
-        
         <!-- Score Breakdown -->
         <section class="breakdown-section">
             <h2 class="section-title">
@@ -517,6 +513,17 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
                     <span class="legend-color class"></span>
                     <span>📚 會館課 ${Math.round(classData.total)} (${classPct.toFixed(1)}%)</span>
                 </div>
+            </div>
+        </section>
+        
+        <!-- Weekly Activity Cards -->
+        <section class="weekly-section">
+            <h2 class="section-title">
+                <span class="section-icon">📅</span>
+                每週活動 Weekly Activity
+            </h2>
+            <div class="weekly-cards">
+                ${renderWeeklyCards(meditation.dailyData, practice.sessions, classData.sessions)}
             </div>
         </section>
     `;
