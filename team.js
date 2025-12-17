@@ -309,14 +309,15 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
     }
 
     // Parse practice daily scores  
+    // Practice sheet: row 0 = points per session, row 1 = dates (can have duplicates), row 2+ = data
     if (practiceCSV) {
         const lines = practiceCSV.split('\n').map(parseCSVLine);
-        // For practice sheet, row 0 might have point values, row 1 has dates
-        // Let's use same logic as meditation - row 0 for dates
-        const dates = lines[0]?.slice(3) || [];
-        console.log('Practice dates from row 0:', dates.slice(0, 5));
+        const pointsPerSession = lines[0]?.slice(3).map(p => parseFloat(p) || 0) || []; // Row 0 has points
+        const dates = lines[1]?.slice(3) || []; // Row 1 has dates
+        console.log('Practice points row 0:', pointsPerSession.slice(0, 5));
+        console.log('Practice dates row 1:', dates.slice(0, 5));
 
-        for (let i = 1; i < lines.length; i++) { // Data starts at row 1
+        for (let i = 2; i < lines.length; i++) { // Data starts at row 2
             const row = lines[i];
             if (!row || row.length < 4) continue;
 
@@ -327,22 +328,22 @@ function parseDailyScores(meditationCSV, practiceCSV, classCSV) {
 
             for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
                 const date = dates[j - 3];
-                if (!date) continue;
+                if (!date || !date.trim()) continue;
 
                 const attended = parseFloat(row[j]) || 0;
-                // Fixed 40 points per practice session attended
-                const score = attended > 0 ? 40 : 0;
+                // Use points from row 0 for this session
+                const pointValue = pointsPerSession[j - 3] || 40;
+                const score = attended > 0 ? pointValue : 0;
 
                 if (score > 0) {
                     console.log(`Practice: ${teamName} ${date} +${score}`);
-                }
-
-                if (teamDailyScores[teamName].daily[date]) {
-                    teamDailyScores[teamName].daily[date].practice += score;
-                } else {
-                    // Date not in meditation sheet, add it
-                    teamDailyScores[teamName].dates.push(date);
-                    teamDailyScores[teamName].daily[date] = { meditation: 0, practice: score, class: 0 };
+                    if (teamDailyScores[teamName].daily[date]) {
+                        teamDailyScores[teamName].daily[date].practice += score;
+                    } else {
+                        // Date not in meditation sheet, add it
+                        teamDailyScores[teamName].dates.push(date);
+                        teamDailyScores[teamName].daily[date] = { meditation: 0, practice: score, class: 0 };
+                    }
                 }
             }
         }
