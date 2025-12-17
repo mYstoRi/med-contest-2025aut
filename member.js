@@ -299,6 +299,116 @@ function calculateStreaks(dailyData) {
 }
 
 // ========================================
+// Heatmap Rendering
+// ========================================
+function renderHeatmap(dailyData) {
+    // Competition period: Dec 8, 2025 to Jan 25, 2026
+    const startDate = new Date(2025, 11, 8); // Dec 8, 2025
+    const endDate = new Date(2026, 0, 25);   // Jan 25, 2026
+
+    // Build array of all days in the period
+    const days = [];
+    const current = new Date(startDate);
+    while (current <= endDate) {
+        const month = current.getMonth() + 1;
+        const day = current.getDate();
+        const dateStr = `${month}/${day}`;
+        const minutes = dailyData[dateStr] || 0;
+
+        days.push({
+            date: new Date(current),
+            dateStr,
+            minutes,
+            dayOfWeek: current.getDay() // 0 = Sunday
+        });
+        current.setDate(current.getDate() + 1);
+    }
+
+    // Find max minutes for intensity scaling
+    const maxMinutes = Math.max(...days.map(d => d.minutes), 1);
+
+    // Get intensity level (0-4)
+    const getLevel = (minutes) => {
+        if (minutes === 0) return 0;
+        const pct = minutes / maxMinutes;
+        if (pct <= 0.25) return 1;
+        if (pct <= 0.5) return 2;
+        if (pct <= 0.75) return 3;
+        return 4;
+    };
+
+    // Build weeks (columns)
+    const weeks = [];
+    let currentWeek = [];
+
+    // Add empty cells for days before start (to align to correct day of week)
+    for (let i = 0; i < days[0].dayOfWeek; i++) {
+        currentWeek.push(null);
+    }
+
+    for (const day of days) {
+        currentWeek.push(day);
+        if (day.dayOfWeek === 6) { // Saturday = end of week
+            weeks.push(currentWeek);
+            currentWeek = [];
+        }
+    }
+    if (currentWeek.length > 0) {
+        weeks.push(currentWeek);
+    }
+
+    // Month labels
+    const monthLabels = [];
+    let lastMonth = -1;
+    weeks.forEach((week, weekIdx) => {
+        const firstDay = week.find(d => d !== null);
+        if (firstDay) {
+            const month = firstDay.date.getMonth();
+            if (month !== lastMonth) {
+                const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                monthLabels.push({ weekIdx, label: monthNames[month] });
+                lastMonth = month;
+            }
+        }
+    });
+
+    // Day labels
+    const dayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+
+    return `
+        <div class="heatmap-container">
+            <div class="heatmap-months">
+                ${monthLabels.map(m => `<span style="grid-column: ${m.weekIdx + 2}">${m.label}</span>`).join('')}
+            </div>
+            <div class="heatmap-grid">
+                <div class="heatmap-days">
+                    ${dayLabels.filter((_, i) => i % 2 === 1).map(d => `<span>${d}</span>`).join('')}
+                </div>
+                <div class="heatmap-weeks">
+                    ${weeks.map(week => `
+                        <div class="heatmap-week">
+                            ${week.map(day => day === null
+        ? '<div class="heatmap-cell empty"></div>'
+        : `<div class="heatmap-cell level-${getLevel(day.minutes)}" title="${day.dateStr}: ${day.minutes} 分鐘"></div>`
+    ).join('')}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="heatmap-legend">
+                <span>少</span>
+                <div class="heatmap-cell level-0"></div>
+                <div class="heatmap-cell level-1"></div>
+                <div class="heatmap-cell level-2"></div>
+                <div class="heatmap-cell level-3"></div>
+                <div class="heatmap-cell level-4"></div>
+                <span>多</span>
+            </div>
+        </div>
+    `;
+}
+
+// ========================================
 // Rendering
 // ========================================
 function renderMemberPage(memberName, teamName, meditation, practice, classData, rank, streaks) {
@@ -381,6 +491,15 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
                 <div class="streak-label">最長連續 Longest Streak</div>
             </div>
         </div>
+        
+        <!-- Activity Heatmap -->
+        <section class="heatmap-section">
+            <h2 class="section-title">
+                <span class="section-icon">📅</span>
+                禪定熱圖 Meditation Heatmap
+            </h2>
+            ${renderHeatmap(meditation.dailyData)}
+        </section>
         
         <!-- Score Breakdown -->
         <section class="breakdown-section">

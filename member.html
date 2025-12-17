@@ -318,6 +318,120 @@
             }
         }
 
+        /* Heatmap Styles */
+        .heatmap-section {
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        @media (max-width: 600px) {
+            .heatmap-section {
+                padding: var(--spacing-sm);
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
+        .heatmap-container {
+            overflow-x: auto;
+        }
+
+        .heatmap-months {
+            display: grid;
+            grid-template-columns: 30px repeat(8, 1fr);
+            margin-bottom: var(--spacing-xs);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .heatmap-grid {
+            display: flex;
+            gap: 4px;
+        }
+
+        .heatmap-days {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding-right: 4px;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .heatmap-weeks {
+            display: flex;
+            gap: 3px;
+        }
+
+        .heatmap-week {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .heatmap-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 600px) {
+            .heatmap-cell {
+                width: 10px;
+                height: 10px;
+            }
+
+            .heatmap-weeks {
+                gap: 2px;
+            }
+
+            .heatmap-week {
+                gap: 2px;
+            }
+        }
+
+        .heatmap-cell.empty {
+            visibility: hidden;
+        }
+
+        .heatmap-cell.level-0 {
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .heatmap-cell.level-1 {
+            background: rgba(139, 92, 246, 0.3);
+        }
+
+        .heatmap-cell.level-2 {
+            background: rgba(139, 92, 246, 0.5);
+        }
+
+        .heatmap-cell.level-3 {
+            background: rgba(139, 92, 246, 0.7);
+        }
+
+        .heatmap-cell.level-4 {
+            background: rgba(139, 92, 246, 1);
+        }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-top: var(--spacing-sm);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .heatmap-legend .heatmap-cell {
+            width: 10px;
+            height: 10px;
+        }
+
         /* Back Link */
         .back-link {
             display: inline-flex;
