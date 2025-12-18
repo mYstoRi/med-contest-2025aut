@@ -108,8 +108,8 @@ async function fetchAllScoreData() {
     // Parse daily data for charts
     const dailyData = parseDailyScores(meditationCSV, practiceCSV, classCSV);
 
-    // Parse member streaks
-    const streaks = meditationCSV ? parseMemberStreaks(meditationCSV) : {};
+    // Parse member streaks (solo and activity)
+    const streaks = parseMemberStreaks(meditationCSV, practiceCSV, classCSV);
 
     return {
         meditation,
@@ -263,47 +263,103 @@ function parseClassSheet(csvText) {
     return teamScores;
 }
 
-// Parse member streaks from meditation sheet
-function parseMemberStreaks(meditationCSV) {
-    const lines = meditationCSV.split('\n').map(parseCSVLine);
-    const dates = lines[0]?.slice(3) || []; // Row 0 has dates
-    const memberStreaks = {}; // teamName -> { memberName -> streak }
-
-    // Parse dates to proper Date objects
+// Parse member streaks from all sheets
+// Returns: { teamName -> { memberName -> { solo: number, activity: number } } }
+function parseMemberStreaks(meditationCSV, practiceCSV, classCSV) {
     const parseDate = (dateStr) => {
         const parts = dateStr.split('/');
         const month = parseInt(parts[0]) || 1;
         const day = parseInt(parts[1]) || 1;
-        // Handle year wrap (Dec 2025, Jan 2026)
         const year = month < 6 ? 2026 : 2025;
         return new Date(year, month - 1, day);
     };
 
-    // Build member daily data
-    const memberDailyData = {}; // teamName -> { memberName -> { dateStr: minutes } }
+    // Build member activity data: { teamName -> { memberName -> { dateStr: { meditation, practice, class } } } }
+    const memberActivityData = {};
 
-    for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 4) continue;
+    // Helper to ensure member structure exists
+    const ensureMember = (teamName, memberName) => {
+        if (!memberActivityData[teamName]) memberActivityData[teamName] = {};
+        if (!memberActivityData[teamName][memberName]) memberActivityData[teamName][memberName] = {};
+    };
 
-        const teamName = row[0];
-        const memberName = row[1];
-        if (!teamName || !memberName) continue;
+    // Parse meditation sheet
+    if (meditationCSV) {
+        const lines = meditationCSV.split('\n').map(parseCSVLine);
+        const dates = lines[0]?.slice(3) || [];
 
-        if (!memberDailyData[teamName]) {
-            memberDailyData[teamName] = {};
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 4) continue;
+            const teamName = row[0], memberName = row[1];
+            if (!teamName || !memberName) continue;
+
+            ensureMember(teamName, memberName);
+
+            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                const dateStr = dates[j - 3];
+                if (!dateStr) continue;
+                const minutes = parseFloat(row[j]) || 0;
+                if (minutes > 0) {
+                    if (!memberActivityData[teamName][memberName][dateStr]) {
+                        memberActivityData[teamName][memberName][dateStr] = {};
+                    }
+                    memberActivityData[teamName][memberName][dateStr].meditation = true;
+                }
+            }
         }
-        if (!memberDailyData[teamName][memberName]) {
-            memberDailyData[teamName][memberName] = {};
+    }
+
+    // Parse practice sheet
+    if (practiceCSV) {
+        const lines = practiceCSV.split('\n').map(parseCSVLine);
+        const dates = lines[1]?.slice(3) || []; // Row 1 has dates for practice
+
+        for (let i = 2; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 4) continue;
+            const teamName = row[0], memberName = row[1];
+            if (!teamName || !memberName) continue;
+
+            ensureMember(teamName, memberName);
+
+            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                const dateStr = dates[j - 3];
+                if (!dateStr) continue;
+                const attended = parseFloat(row[j]) || 0;
+                if (attended > 0) {
+                    if (!memberActivityData[teamName][memberName][dateStr]) {
+                        memberActivityData[teamName][memberName][dateStr] = {};
+                    }
+                    memberActivityData[teamName][memberName][dateStr].practice = true;
+                }
+            }
         }
+    }
 
-        for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-            const dateStr = dates[j - 3];
-            if (!dateStr) continue;
+    // Parse class sheet
+    if (classCSV) {
+        const lines = classCSV.split('\n').map(parseCSVLine);
+        const dates = lines[0]?.slice(4) || []; // Row 0 has dates, starting at col 4
 
-            const minutes = parseFloat(row[j]) || 0;
-            if (minutes > 0) {
-                memberDailyData[teamName][memberName][dateStr] = minutes;
+        for (let i = 1; i < lines.length; i++) {
+            const row = lines[i];
+            if (!row || row.length < 5) continue;
+            const teamName = row[0], memberName = row[1];
+            if (!teamName || !memberName) continue;
+
+            ensureMember(teamName, memberName);
+
+            for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                const dateStr = dates[j - 4];
+                if (!dateStr) continue;
+                const attended = parseFloat(row[j]) || 0;
+                if (attended > 0) {
+                    if (!memberActivityData[teamName][memberName][dateStr]) {
+                        memberActivityData[teamName][memberName][dateStr] = {};
+                    }
+                    memberActivityData[teamName][memberName][dateStr].class = true;
+                }
             }
         }
     }
@@ -314,48 +370,52 @@ function parseMemberStreaks(meditationCSV) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    for (const teamName of Object.keys(memberDailyData)) {
+    const memberStreaks = {};
+
+    // Helper to calculate streak from a set of date strings
+    const calculateStreak = (dateStrs) => {
+        if (dateStrs.length === 0) return 0;
+
+        const sortedDates = dateStrs
+            .map(d => ({ str: d, date: parseDate(d) }))
+            .sort((a, b) => a.date - b.date);
+
+        const lastDate = new Date(sortedDates[sortedDates.length - 1].date);
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate < yesterday) return 0;
+
+        let streak = 1;
+        for (let i = sortedDates.length - 2; i >= 0; i--) {
+            const curr = new Date(sortedDates[i + 1].date);
+            const prev = new Date(sortedDates[i].date);
+            curr.setHours(0, 0, 0, 0);
+            prev.setHours(0, 0, 0, 0);
+            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+            if (diffDays === 1) streak++;
+            else break;
+        }
+        return streak;
+    };
+
+    for (const teamName of Object.keys(memberActivityData)) {
         memberStreaks[teamName] = {};
 
-        for (const memberName of Object.keys(memberDailyData[teamName])) {
-            const dailyData = memberDailyData[teamName][memberName];
-            const meditationDates = Object.keys(dailyData).filter(d => dailyData[d] > 0);
+        for (const memberName of Object.keys(memberActivityData[teamName])) {
+            const dailyData = memberActivityData[teamName][memberName];
 
-            if (meditationDates.length === 0) {
-                memberStreaks[teamName][memberName] = 0;
-                continue;
-            }
+            // Solo streak: meditation only
+            const meditationDates = Object.keys(dailyData).filter(d => dailyData[d].meditation);
+            const soloStreak = calculateStreak(meditationDates);
 
-            // Sort dates
-            const sortedDates = meditationDates
-                .map(d => ({ str: d, date: parseDate(d) }))
-                .sort((a, b) => a.date - b.date);
+            // Activity streak: any activity
+            const activityDates = Object.keys(dailyData).filter(d =>
+                dailyData[d].meditation || dailyData[d].practice || dailyData[d].class
+            );
+            const activityStreak = calculateStreak(activityDates);
 
-            // Find current streak (counting back from today/yesterday)
-            const lastDate = sortedDates[sortedDates.length - 1].date;
-            lastDate.setHours(0, 0, 0, 0);
-
-            if (lastDate < yesterday) {
-                // Last meditation was before yesterday - no current streak
-                memberStreaks[teamName][memberName] = 0;
-                continue;
-            }
-
-            // Count consecutive days backwards
-            let streak = 1;
-            for (let i = sortedDates.length - 2; i >= 0; i--) {
-                const curr = sortedDates[i + 1].date;
-                const prev = sortedDates[i].date;
-                const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
-
-                if (diffDays === 1) {
-                    streak++;
-                } else {
-                    break;
-                }
-            }
-
-            memberStreaks[teamName][memberName] = streak;
+            memberStreaks[teamName][memberName] = { solo: soloStreak, activity: activityStreak };
         }
     }
 
@@ -768,13 +828,16 @@ function renderTeamPage(teamData, scoreBreakdown) {
         const cPct = member.class / memberTotal * barWidth;
 
         const memberUrl = `./member.html?name=${encodeURIComponent(member.name)}&team=${encodeURIComponent(teamName)}`;
-        const streakBadge = member.streak > 0 ? `<span class="member-streak" title="${member.streak} 天連續禪定">🔥${member.streak}</span>` : '';
+        // Show activity streak (any activity) with fire, solo streak (meditation only) with lotus
+        const activityBadge = member.activityStreak > 0 ? `<span class="member-streak activity" title="${member.activityStreak} 天精進連續">🔥${member.activityStreak}</span>` : '';
+        const soloBadge = member.soloStreak > 0 ? `<span class="member-streak solo" title="${member.soloStreak} 天獨修連續">🧘${member.soloStreak}</span>` : '';
+        const streakBadges = activityBadge + soloBadge;
 
         return `
                         <div class="member-card">
                             <div class="member-rank ${rankClass}">${rankEmoji}</div>
                             <div class="member-info">
-                                <a href="${memberUrl}" class="member-name-link">${member.name}</a>${streakBadge}
+                                <a href="${memberUrl}" class="member-name-link">${member.name}</a>${streakBadges}
                                 <div class="member-bar-container stacked">
                                     <div class="member-bar-segment meditation" style="width: ${mPct}%"></div>
                                     <div class="member-bar-segment practice" style="width: ${pPct}%"></div>
@@ -815,7 +878,7 @@ function getMemberBreakdowns(scoreBreakdown, teamName) {
         const practice = practiceMembers[name] || 0;
         const classScore = classMembers[name] || 0;
         const total = meditation + practice + classScore;
-        const streak = memberStreaks[name] || 0;
+        const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
 
         return {
             name,
@@ -823,7 +886,8 @@ function getMemberBreakdowns(scoreBreakdown, teamName) {
             practice,
             class: classScore,
             total,
-            streak
+            soloStreak: streakData.solo || 0,
+            activityStreak: streakData.activity || 0
         };
     });
 
