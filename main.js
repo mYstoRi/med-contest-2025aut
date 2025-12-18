@@ -379,34 +379,10 @@ async function fetchMemberStreaks() {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 
-        let debugFirst = true;
         const calcStreak = (dateStrs) => {
             if (dateStrs.length === 0) return 0;
             const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
             const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
-            if (debugFirst && dateStrs.length > 0) {
-                // Show all sorted dates
-                console.log('calcStreak debug:', {
-                    inputLength: dateStrs.length,
-                    sortedDates: sorted.map(x => x.str),
-                    sortedLast: sorted[sorted.length - 1].str,
-                    lastVsYesterday: { last: last.getTime(), yesterday: yesterday.getTime(), isLessThan: last < yesterday }
-                });
-                // Calculate day differences for the last 5 dates
-                if (sorted.length >= 2) {
-                    const diffs = [];
-                    for (let i = sorted.length - 1; i >= Math.max(0, sorted.length - 5); i--) {
-                        if (i > 0) {
-                            const curr = new Date(sorted[i].date); curr.setHours(0, 0, 0, 0);
-                            const prev = new Date(sorted[i - 1].date); prev.setHours(0, 0, 0, 0);
-                            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
-                            diffs.push({ from: sorted[i - 1].str, to: sorted[i].str, diffDays });
-                        }
-                    }
-                    console.log('Day diffs:', diffs);
-                }
-                debugFirst = false;
-            }
             if (last < yesterday) return 0;
             let streak = 1;
             for (let i = sorted.length - 2; i >= 0; i--) {
@@ -425,21 +401,6 @@ async function fetchMemberStreaks() {
             streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
         }
 
-        console.log('Member streaks calculated:', Object.keys(streaks).length);
-        console.log('Today:', today.toISOString(), 'Yesterday:', yesterday.toISOString());
-        // Debug: log a sample member's activity data
-        const sampleNames = Object.keys(memberActivity).slice(0, 3);
-        for (const name of sampleNames) {
-            const actDates = Object.keys(memberActivity[name]).filter(d =>
-                memberActivity[name][d].meditation || memberActivity[name][d].practice || memberActivity[name][d].class
-            );
-            console.log(`Debug ${name}:`, {
-                allDates: Object.keys(memberActivity[name]),
-                activityDates: actDates,
-                parsedLast: actDates.length > 0 ? parseDate(actDates[actDates.length - 1]).toISOString() : 'none',
-                streak: streaks[name]
-            });
-        }
         return streaks;
     } catch (error) {
         console.error('Error fetching member streaks:', error);
@@ -483,11 +444,6 @@ function processFormResponses(rows, memberTeams = {}, memberStreaks = {}) {
 
         // Get streaks from pre-calculated data
         const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
-
-        // Debug: log first few activity lookups
-        if (recentActivities.length < 5) {
-            console.log(`Activity streak lookup: "${name}" found:`, memberStreaks[name] !== undefined, 'streak:', streakData);
-        }
 
         // Recent activity
         recentActivities.push({
