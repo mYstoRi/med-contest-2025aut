@@ -1,51 +1,14 @@
 // ========================================
-// Configuration
+// Imports from Shared Modules
 // ========================================
-const CONFIG = {
-    SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
-    SHEETS: {
-        MEDITATION: '禪定登記',
-        PRACTICE: '共修登記',
-        CLASS: '會館課登記'
-    },
-    POINTS: {
-        CLASS_PER_ATTENDANCE: 50
-    }
-};
-
-// ========================================
-// Data Fetching
-// ========================================
-function getSheetUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-async function fetchSheetData(sheetName) {
-    const response = await fetch(getSheetUrl(sheetName));
-    if (!response.ok) throw new Error(`Failed to fetch ${sheetName}`);
-    return response.text();
-}
-
-// ========================================
-// CSV Parsing
-// ========================================
-function parseCSVLine(line) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    for (const char of line) {
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            values.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    values.push(current.trim());
-    return values;
-}
+import { CONFIG } from './config.js';
+import {
+    parseCSVLine,
+    getSheetUrl,
+    fetchSheetData,
+    initTheme,
+    initSettings
+} from './utils.js';
 
 // ========================================
 // Member Data Parsing
@@ -541,44 +504,6 @@ function showError(message) {
                 <p>❌ ${message}</p>
             </div>
         `;
-    }
-}
-
-// ========================================
-// Theme Settings
-// ========================================
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-}
-
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-}
-
-function initSettings() {
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsPanel = document.getElementById('settingsPanel');
-    const themeToggle = document.getElementById('themeToggle');
-
-    if (settingsBtn && settingsPanel) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
-                settingsPanel.classList.remove('open');
-            }
-        });
-    }
-
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
     }
 }
 
