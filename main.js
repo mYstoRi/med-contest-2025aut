@@ -336,11 +336,9 @@ async function fetchMemberStreaks() {
         }
 
         // Parse practice
-        let practiceCount = 0;
         if (pracCSV) {
             const lines = pracCSV.split('\n').map(parseCSVLine);
             const dates = lines[1]?.slice(3) || [];
-            console.log('Practice dates header:', dates.slice(0, 5));
             for (let i = 2; i < lines.length; i++) {
                 const row = lines[i];
                 if (!row || row.length < 4) continue;
@@ -352,18 +350,15 @@ async function fetchMemberStreaks() {
                     if ((parseFloat(row[j]) || 0) > 0) {
                         ensureMember(name, dateStr);
                         memberActivity[name][dateStr].practice = true;
-                        practiceCount++;
                     }
                 }
             }
         }
 
         // Parse class
-        let classCount = 0;
         if (classCSV) {
             const lines = classCSV.split('\n').map(parseCSVLine);
             const dates = lines[0]?.slice(4) || [];
-            console.log('Class dates header:', dates.slice(0, 5));
             for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
                 if (!row || row.length < 5) continue;
@@ -375,12 +370,10 @@ async function fetchMemberStreaks() {
                     if ((parseFloat(row[j]) || 0) > 0) {
                         ensureMember(name, dateStr);
                         memberActivity[name][dateStr].class = true;
-                        classCount++;
                     }
                 }
             }
         }
-        console.log('Parsed entries - Practice:', practiceCount, 'Class:', classCount);
 
         // Calculate streaks
         const today = new Date(); today.setHours(0, 0, 0, 0);
