@@ -379,10 +379,21 @@ async function fetchMemberStreaks() {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 
+        let debugFirst = true;
         const calcStreak = (dateStrs) => {
             if (dateStrs.length === 0) return 0;
             const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
             const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
+            if (debugFirst && dateStrs.length > 0) {
+                console.log('calcStreak debug:', {
+                    inputDates: dateStrs,
+                    sortedLast: sorted[sorted.length - 1].str,
+                    lastTime: last.getTime(),
+                    yesterdayTime: yesterday.getTime(),
+                    comparison: last.getTime() < yesterday.getTime()
+                });
+                debugFirst = false;
+            }
             if (last < yesterday) return 0;
             let streak = 1;
             for (let i = sorted.length - 2; i >= 0; i--) {
