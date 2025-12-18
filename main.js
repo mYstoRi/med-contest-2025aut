@@ -471,6 +471,11 @@ function processFormResponses(rows, memberTeams = {}, memberStreaks = {}) {
         // Get streaks from pre-calculated data
         const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
 
+        // Debug: log first few activity lookups
+        if (recentActivities.length < 5) {
+            console.log(`Activity streak lookup: "${name}" found:`, memberStreaks[name] !== undefined, 'streak:', streakData);
+        }
+
         // Recent activity
         recentActivities.push({
             name,
