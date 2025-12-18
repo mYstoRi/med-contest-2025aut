@@ -228,74 +228,70 @@ function getMemberRank(meditationCSV, practiceCSV, classCSV, memberName, teamNam
 // ========================================
 // Streak Calculation
 // ========================================
-function calculateStreaks(dailyData) {
-    // Get all dates with meditation and sort chronologically
-    const dates = Object.keys(dailyData).filter(d => dailyData[d] > 0);
-
-    if (dates.length === 0) {
-        return { current: 0, longest: 0 };
-    }
-
-    // Parse dates for sorting
+function calculateStreaks(meditationDaily, practiceSessions, classSessions) {
+    // Parse date helper
     const parseDate = (d) => {
         const parts = d.split('/');
         const month = parseInt(parts[0]) || 1;
         const day = parseInt(parts[1]) || 1;
-        // Handle year wrap (Dec 2025, Jan 2026)
         const year = month < 6 ? 2026 : 2025;
         return new Date(year, month - 1, day);
     };
 
-    const sortedDates = dates.map(d => ({
-        str: d,
-        date: parseDate(d)
-    })).sort((a, b) => a.date - b.date);
+    // Calculate streak from date strings
+    const calcStreak = (dateStrs) => {
+        if (dateStrs.length === 0) return { current: 0, longest: 0 };
 
-    // Calculate streaks
-    let currentStreak = 0;
-    let longestStreak = 0;
-    let tempStreak = 1;
+        const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
 
-    for (let i = 1; i < sortedDates.length; i++) {
-        const prevDate = sortedDates[i - 1].date;
-        const currDate = sortedDates[i].date;
-        const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-
-        if (diffDays === 1) {
-            tempStreak++;
-        } else {
-            longestStreak = Math.max(longestStreak, tempStreak);
-            tempStreak = 1;
+        // Calculate longest streak
+        let longest = 1, temp = 1;
+        for (let i = 1; i < sorted.length; i++) {
+            const diff = (sorted[i].date - sorted[i - 1].date) / (1000 * 60 * 60 * 24);
+            if (diff === 1) temp++;
+            else { longest = Math.max(longest, temp); temp = 1; }
         }
-    }
-    longestStreak = Math.max(longestStreak, tempStreak);
+        longest = Math.max(longest, temp);
 
-    // Check if current streak is ongoing (includes today or yesterday)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+        // Calculate current streak
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
 
-    const lastMeditationDate = sortedDates[sortedDates.length - 1].date;
-    lastMeditationDate.setHours(0, 0, 0, 0);
-
-    if (lastMeditationDate >= yesterday) {
-        // Count back from the last date
-        currentStreak = 1;
-        for (let i = sortedDates.length - 2; i >= 0; i--) {
-            const prevDate = sortedDates[i].date;
-            const currDate = sortedDates[i + 1].date;
-            const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-
-            if (diffDays === 1) {
-                currentStreak++;
-            } else {
-                break;
+        let current = 0;
+        if (last >= yesterday) {
+            current = 1;
+            for (let i = sorted.length - 2; i >= 0; i--) {
+                const curr = new Date(sorted[i + 1].date); curr.setHours(0, 0, 0, 0);
+                const prev = new Date(sorted[i].date); prev.setHours(0, 0, 0, 0);
+                if ((curr - prev) / (1000 * 60 * 60 * 24) === 1) current++;
+                else break;
             }
         }
-    }
 
-    return { current: currentStreak, longest: longestStreak };
+        return { current, longest };
+    };
+
+    // Get meditation dates
+    const meditationDates = Object.keys(meditationDaily || {}).filter(d => meditationDaily[d] > 0);
+
+    // Get practice dates
+    const practiceDates = (practiceSessions || []).map(s => s.date);
+
+    // Get class dates
+    const classDates = (classSessions || []).map(s => s.date);
+
+    // Solo streak: meditation only
+    const solo = calcStreak(meditationDates);
+
+    // Activity streak: any activity
+    const allDates = [...new Set([...meditationDates, ...practiceDates, ...classDates])];
+    const activity = calcStreak(allDates);
+
+    return {
+        solo: { current: solo.current, longest: solo.longest },
+        activity: { current: activity.current, longest: activity.longest }
+    };
 }
 // ========================================
 // Weekly Summary Cards Rendering
@@ -477,13 +473,21 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
         
         <!-- Streak Cards -->
         <div class="streak-container">
-            <div class="streak-card ${streaks.current > 0 ? 'current' : ''}">
-                <div class="streak-value">🔥 ${streaks.current}</div>
-                <div class="streak-label">目前連續 Current Streak</div>
+            <div class="streak-card ${streaks.activity.current > 0 ? 'current' : ''}">
+                <div class="streak-value">🔥 ${streaks.activity.current}</div>
+                <div class="streak-label">精進連續 Activity Streak</div>
+            </div>
+            <div class="streak-card ${streaks.solo.current > 0 ? 'solo-active' : ''}">
+                <div class="streak-value">🧘 ${streaks.solo.current}</div>
+                <div class="streak-label">獨修連續 Solo Streak</div>
             </div>
             <div class="streak-card">
-                <div class="streak-value">⭐ ${streaks.longest}</div>
-                <div class="streak-label">最長連續 Longest Streak</div>
+                <div class="streak-value">⭐ ${streaks.activity.longest}</div>
+                <div class="streak-label">最長精進 Longest Activity</div>
+            </div>
+            <div class="streak-card">
+                <div class="streak-value">✨ ${streaks.solo.longest}</div>
+                <div class="streak-label">最長獨修 Longest Solo</div>
             </div>
         </div>
         
@@ -613,8 +617,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Get ranking
         const rank = getMemberRank(meditationCSV, practiceCSV, classCSV, memberName, teamName);
 
-        // Calculate streaks
-        const streaks = calculateStreaks(meditation.dailyData);
+        // Calculate streaks (solo and activity)
+        const streaks = calculateStreaks(meditation.dailyData, practice.sessions, classData.sessions);
 
         console.log('Member data:', { memberName, teamName, meditation, practice, classData, rank, streaks });
 

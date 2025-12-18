@@ -746,13 +746,20 @@ body {
 .activity-streak {
   display: inline-flex;
   align-items: center;
-  margin-left: 6px;
+  margin-left: 4px;
   padding: 1px 5px;
-  background: linear-gradient(135deg, #f59e0b, #ef4444);
   color: white;
   border-radius: 8px;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
+}
+
+.activity-streak.act {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.activity-streak.solo {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
 }
 
 .activity-name-link {

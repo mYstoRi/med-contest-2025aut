@@ -8,7 +8,9 @@ const CONFIG = {
     // Original form responses for activity feed
     SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
     FORM_RESPONSES_SHEET: '表單回應 1',
-    MEDITATION_SHEET: '禪定登記',  // For name-to-team mapping
+    MEDITATION_SHEET: '禪定登記',
+    PRACTICE_SHEET: '共修',
+    CLASS_SHEET: '會館課程',
 
     // Refresh interval in milliseconds (5 minutes)
     REFRESH_INTERVAL: 5 * 60 * 1000,
@@ -264,10 +266,147 @@ async function fetchMemberTeams() {
     }
 }
 
+// Fetch all sheets and calculate dual streaks: solo (meditation only) and activity (any)
+async function fetchMemberStreaks() {
+    const getSheetUrl = (sheetName) =>
+        `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+
+    try {
+        const [medResp, pracResp, classResp] = await Promise.all([
+            fetch(getSheetUrl(CONFIG.MEDITATION_SHEET)),
+            fetch(getSheetUrl(CONFIG.PRACTICE_SHEET)),
+            fetch(getSheetUrl(CONFIG.CLASS_SHEET))
+        ]);
+
+        const [medCSV, pracCSV, classCSV] = await Promise.all([
+            medResp.ok ? medResp.text() : '',
+            pracResp.ok ? pracResp.text() : '',
+            classResp.ok ? classResp.text() : ''
+        ]);
+
+        // Parse CSV line helper
+        const parseCSVLine = (line) => {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            for (const char of line) {
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+                else current += char;
+            }
+            values.push(current.trim());
+            return values;
+        };
+
+        // Parse date helper
+        const parseDate = (dateStr) => {
+            const parts = dateStr.split('/');
+            const month = parseInt(parts[0]) || 1;
+            const day = parseInt(parts[1]) || 1;
+            const year = month < 6 ? 2026 : 2025;
+            return new Date(year, month - 1, day);
+        };
+
+        // Build member activity data
+        const memberActivity = {}; // name -> { dateStr -> { meditation, practice, class } }
+
+        const ensureMember = (name, dateStr) => {
+            if (!memberActivity[name]) memberActivity[name] = {};
+            if (!memberActivity[name][dateStr]) memberActivity[name][dateStr] = {};
+        };
+
+        // Parse meditation
+        if (medCSV) {
+            const lines = medCSV.split('\n').map(parseCSVLine);
+            const dates = lines[0]?.slice(3) || [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dates[j - 3]);
+                        memberActivity[name][dates[j - 3]].meditation = true;
+                    }
+                }
+            }
+        }
+
+        // Parse practice
+        if (pracCSV) {
+            const lines = pracCSV.split('\n').map(parseCSVLine);
+            const dates = lines[1]?.slice(3) || [];
+            for (let i = 2; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dates[j - 3]);
+                        memberActivity[name][dates[j - 3]].practice = true;
+                    }
+                }
+            }
+        }
+
+        // Parse class
+        if (classCSV) {
+            const lines = classCSV.split('\n').map(parseCSVLine);
+            const dates = lines[0]?.slice(4) || [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 5) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dates[j - 4]);
+                        memberActivity[name][dates[j - 4]].class = true;
+                    }
+                }
+            }
+        }
+
+        // Calculate streaks
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+
+        const calcStreak = (dateStrs) => {
+            if (dateStrs.length === 0) return 0;
+            const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
+            const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
+            if (last < yesterday) return 0;
+            let streak = 1;
+            for (let i = sorted.length - 2; i >= 0; i--) {
+                const curr = new Date(sorted[i + 1].date); curr.setHours(0, 0, 0, 0);
+                const prev = new Date(sorted[i].date); prev.setHours(0, 0, 0, 0);
+                if ((curr - prev) / (1000 * 60 * 60 * 24) === 1) streak++;
+                else break;
+            }
+            return streak;
+        };
+
+        const streaks = {};
+        for (const [name, days] of Object.entries(memberActivity)) {
+            const soloD = Object.keys(days).filter(d => days[d].meditation);
+            const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
+            streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
+        }
+
+        console.log('Member streaks calculated:', Object.keys(streaks).length);
+        return streaks;
+    } catch (error) {
+        console.error('Error fetching member streaks:', error);
+        return {};
+    }
+}
+
 // ========================================
 // Data Processing
 // ========================================
-function processFormResponses(rows, memberTeams = {}) {
+function processFormResponses(rows, memberTeams = {}, memberStreaks = {}) {
     let totalMinutes = 0;
     let totalSessions = 0;
     let longestSession = { minutes: 0, name: '' };
@@ -298,6 +437,9 @@ function processFormResponses(rows, memberTeams = {}) {
             longestSession = { minutes, name };
         }
 
+        // Get streaks from pre-calculated data
+        const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
+
         // Recent activity
         recentActivities.push({
             name,
@@ -306,6 +448,8 @@ function processFormResponses(rows, memberTeams = {}) {
             points,
             date,
             timestamp,
+            soloStreak: streakData.solo,
+            activityStreak: streakData.activity
         });
     }
 
@@ -341,71 +485,6 @@ function processFormResponses(rows, memberTeams = {}) {
         };
         return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
     });
-
-    // Calculate streaks for each member
-    const memberDates = {}; // name -> Set of date strings
-    for (const activity of recentActivities) {
-        const name = activity.name;
-        if (!name) continue;
-        if (!memberDates[name]) memberDates[name] = new Set();
-        // Parse date to normalized format
-        const date = activity.date;
-        if (date) memberDates[name].add(date);
-    }
-
-    // Calculate current streak for each member
-    const memberStreaks = {};
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    for (const [name, dates] of Object.entries(memberDates)) {
-        // Parse dates to Date objects
-        const parsedDates = Array.from(dates).map(d => {
-            const parts = d.split('/');
-            const month = parseInt(parts[1]) - 1;
-            const day = parseInt(parts[2]);
-            const year = parseInt(parts[0]);
-            return new Date(year, month, day);
-        }).sort((a, b) => a - b);
-
-        if (parsedDates.length === 0) {
-            memberStreaks[name] = 0;
-            continue;
-        }
-
-        const lastDate = parsedDates[parsedDates.length - 1];
-        lastDate.setHours(0, 0, 0, 0);
-
-        if (lastDate < yesterday) {
-            memberStreaks[name] = 0;
-            continue;
-        }
-
-        // Count consecutive days backwards
-        let streak = 1;
-        for (let i = parsedDates.length - 2; i >= 0; i--) {
-            const curr = parsedDates[i + 1];
-            const prev = parsedDates[i];
-            prev.setHours(0, 0, 0, 0);
-            curr.setHours(0, 0, 0, 0);
-            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
-
-            if (diffDays === 1) {
-                streak++;
-            } else {
-                break;
-            }
-        }
-
-        memberStreaks[name] = streak;
-    }
-
-    // Add streak to each activity
-    for (const activity of recentActivities) {
-        activity.streak = memberStreaks[activity.name] || 0;
-    }
 
     return {
         totalMinutes,
@@ -549,7 +628,10 @@ function renderActivityFeed(activities) {
 
     container.innerHTML = activities.map(activity => {
         const config = getTeamConfig(activity.team);
-        const streakBadge = activity.streak > 0 ? `<span class="activity-streak" title="${activity.streak} 天連續禪定">🔥${activity.streak}</span>` : '';
+        // Dual streak badges
+        const activityBadge = activity.activityStreak > 0 ? `<span class="activity-streak act" title="${activity.activityStreak} 天精進連續">🔥${activity.activityStreak}</span>` : '';
+        const soloBadge = activity.soloStreak > 0 ? `<span class="activity-streak solo" title="${activity.soloStreak} 天獨修連續">🧘${activity.soloStreak}</span>` : '';
+        const streakBadges = activityBadge + soloBadge;
         const memberUrl = `./member.html?name=${encodeURIComponent(activity.name)}&team=${encodeURIComponent(activity.team)}`;
         const nameDisplay = activity.name
             ? `<a href="${memberUrl}" class="activity-name-link">${activity.name}</a>`
@@ -558,7 +640,7 @@ function renderActivityFeed(activities) {
       <div class="activity-item ${config.color}">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
-          <div class="activity-name">${nameDisplay}${streakBadge}</div>
+          <div class="activity-name">${nameDisplay}${streakBadges}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
         <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
@@ -597,17 +679,18 @@ async function loadData() {
         console.log('Fetching data from Google Sheets...');
 
         // Fetch all data sources in parallel
-        const [totalsData, formRows, memberTeams] = await Promise.all([
+        const [totalsData, formRows, memberTeams, memberStreaks] = await Promise.all([
             fetchTotalsData(),
             fetchFormResponsesData(),
-            fetchMemberTeams()
+            fetchMemberTeams(),
+            fetchMemberStreaks()
         ]);
 
         console.log('Totals data:', totalsData);
         console.log(`Form responses: ${formRows.length} rows`);
 
         // Process form responses for activity feed and stats
-        const formData = processFormResponses(formRows, memberTeams);
+        const formData = processFormResponses(formRows, memberTeams, memberStreaks);
 
         // Combine data
         const data = {
