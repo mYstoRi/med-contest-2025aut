@@ -189,6 +189,10 @@ function parseClassSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
     const teamScores = {};
 
+    // Debug: show first row (headers) and first data row
+    console.log('Class sheet header:', lines[0]?.slice(0, 8));
+    console.log('Class sheet first data row:', lines[1]?.slice(0, 8));
+
     // Row 0 has dates header, data starts from row 1
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
@@ -200,6 +204,11 @@ function parseClassSheet(csvText) {
         const totalClasses = parseFloat(row[3]) || 0;
 
         if (!teamName || !memberName) continue;
+
+        // Debug first few members
+        if (i <= 5) {
+            console.log(`Class member ${memberName}: row[2]="${row[2]}", row[3]="${row[3]}", totalClasses=${totalClasses}`);
+        }
 
         const totalPoints = totalClasses * CONFIG.POINTS.CLASS_PER_ATTENDANCE;
 
