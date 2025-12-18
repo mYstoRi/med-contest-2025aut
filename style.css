@@ -263,6 +263,31 @@ body {
   text-transform: uppercase;
 }
 
+.form-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  color: white;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+.form-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 25px rgba(139, 92, 246, 0.5);
+}
+
+.form-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
 /* ========================================
    Section Titles
    ======================================== */
@@ -716,6 +741,36 @@ body {
 
 .activity-name {
   font-weight: 500;
+}
+
+.activity-streak {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 1px 5px;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.activity-streak.act {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.activity-streak.solo {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+}
+
+.activity-name-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.activity-name-link:hover {
+  color: #8b5cf6;
+  text-decoration: underline;
 }
 
 .activity-details {

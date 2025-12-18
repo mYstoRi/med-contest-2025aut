@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人詳情 | Member Details</title>
+    <meta name="description" content="禪修競賽個人積分詳情 - Personal meditation competition details">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        /* Member Page Specific Styles */
+        .member-header {
+            text-align: center;
+            padding: var(--spacing-xl) var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        @media (max-width: 600px) {
+            .member-header {
+                padding: var(--spacing-md) var(--spacing-sm);
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
+        .member-avatar {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        @media (max-width: 600px) {
+            .member-avatar {
+                font-size: 2.5rem;
+                margin-bottom: var(--spacing-xs);
+            }
+        }
+
+        .member-name-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .member-name-title {
+                font-size: 1.4rem;
+            }
+        }
+
+        .member-team-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        @media (max-width: 600px) {
+            .member-team-link {
+                font-size: 0.85rem;
+            }
+        }
+
+        .member-team-link:hover {
+            color: var(--text-primary);
+        }
+
+        .member-rank-badge {
+            display: inline-block;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-full);
+            margin-top: var(--spacing-sm);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .member-rank-badge {
+                font-size: 0.75rem;
+                padding: 4px var(--spacing-xs);
+            }
+        }
+
+        /* Stats Grid */
+        .member-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        @media (max-width: 600px) {
+            .member-stats {
+                gap: var(--spacing-xs);
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
+        .member-stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-card {
+                padding: var(--spacing-sm);
+                border-radius: var(--radius-sm);
+            }
+        }
+
+        .member-stat-icon {
+            font-size: 2rem;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-icon {
+                font-size: 1.2rem;
+                margin-bottom: 2px;
+            }
+        }
+
+        .member-stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-value {
+                font-size: 1rem;
+                margin-bottom: 2px;
+            }
+        }
+
+        .member-stat-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 600px) {
+            .member-stat-label {
+                font-size: 0.6rem;
+                line-height: 1.2;
+            }
+        }
+
+        /* Score Breakdown */
+        .breakdown-section {
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        .breakdown-bar {
+            display: flex;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin: var(--spacing-md) 0;
+        }
+
+        .breakdown-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            min-width: 30px;
+        }
+
+        .breakdown-segment.meditation {
+            background: #8b5cf6;
+        }
+
+        .breakdown-segment.practice {
+            background: #10b981;
+        }
+
+        .breakdown-segment.class {
+            background: #f59e0b;
+        }
+
+        .breakdown-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-color.meditation {
+            background: #8b5cf6;
+        }
+
+        .legend-color.practice {
+            background: #10b981;
+        }
+
+        .legend-color.class {
+            background: #f59e0b;
+        }
+
+        /* Activity History */
+        .history-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .activity-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+        }
+
+        .activity-day {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-sm);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .activity-day:last-child {
+            border-bottom: none;
+        }
+
+        .activity-date {
+            font-weight: 500;
+        }
+
+        .activity-minutes {
+            color: var(--text-muted);
+        }
+
+        .activity-points {
+            font-weight: 700;
+            color: #8b5cf6;
+        }
+
+        /* Streak Display */
+        .streak-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        @media (max-width: 700px) {
+            .streak-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: var(--spacing-xs);
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
+        .streak-card {
+            flex: 1;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .streak-card {
+                padding: var(--spacing-sm);
+                border-radius: var(--radius-sm);
+            }
+        }
+
+        .streak-card.current {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .streak-card.solo-active {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .streak-value {
+            font-size: 3rem;
+            font-weight: 700;
+        }
+
+        @media (max-width: 600px) {
+            .streak-value {
+                font-size: 1.8rem;
+            }
+        }
+
+        .streak-label {
+            color: var(--text-muted);
+            margin-top: var(--spacing-xs);
+        }
+
+        @media (max-width: 600px) {
+            .streak-label {
+                font-size: 0.7rem;
+            }
+        }
+
+        /* Weekly Cards Styles */
+        .weekly-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        @media (max-width: 600px) {
+            .weekly-section {
+                margin-bottom: var(--spacing-md);
+            }
+        }
+
+        .weekly-cards {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .week-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+        }
+
+        @media (max-width: 600px) {
+            .week-card {
+                padding: var(--spacing-sm);
+            }
+        }
+
+        .week-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .week-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .week-dates {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .week-days {
+            display: flex;
+            gap: 4px;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .day-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .day-column.today {
+            background: rgba(139, 92, 246, 0.15);
+            border-radius: var(--radius-sm);
+            padding: 4px 2px;
+            margin: -4px -2px;
+        }
+
+        .day-column.future {
+            opacity: 0.4;
+        }
+
+        .day-scores {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-height: 50px;
+            justify-content: center;
+        }
+
+        .day-score {
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .day-score.meditation {
+            color: #8b5cf6;
+        }
+
+        .day-score.practice {
+            color: #10b981;
+        }
+
+        .day-score.class {
+            color: #f59e0b;
+        }
+
+        .day-score.empty {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+
+        @media (max-width: 600px) {
+            .day-score {
+                font-size: 0.6rem;
+            }
+
+            .day-scores {
+                min-height: 40px;
+            }
+        }
+
+        .day-icons {
+            height: 18px;
+            display: flex;
+            gap: 2px;
+            font-size: 0.7rem;
+        }
+
+
+        .day-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .day-date {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .week-summary {
+            display: flex;
+            justify-content: space-between;
+            padding-top: var(--spacing-sm);
+            border-top: 1px solid var(--glass-border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 600px) {
+            .week-summary {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Back Link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: var(--spacing-md);
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Settings Button & Panel -->
+    <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+        ⚙️
+    </button>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-title">⚙️ 設定 Settings</div>
+        <div class="settings-item">
+            <span class="settings-label">主題 Theme</span>
+            <div class="theme-toggle" id="themeToggle" role="switch" aria-label="Toggle theme"></div>
+        </div>
+    </div>
+
+    <div class="bg-effects">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <div id="memberContent">
+            <div class="loading-placeholder">
+                <div class="loading-spinner"></div>
+                <p>載入中 Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./member.js"></script>
+</body>
+
+</html>

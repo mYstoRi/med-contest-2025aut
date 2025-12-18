@@ -294,6 +294,40 @@
             color: var(--text-muted);
         }
 
+        /* Clickable member name */
+        .member-name-link {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .member-name-link:hover {
+            color: #8b5cf6;
+            text-decoration: underline;
+        }
+
+        /* Streak badges */
+        .member-streak {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 4px;
+            padding: 2px 6px;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .member-streak.activity {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+
+        .member-streak.solo {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        }
+
         .debug-item {
             display: inline-flex;
             align-items: center;

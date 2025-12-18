@@ -8,6 +8,9 @@ const CONFIG = {
     // Original form responses for activity feed
     SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
     FORM_RESPONSES_SHEET: '表單回應 1',
+    MEDITATION_SHEET: '禪定登記',
+    PRACTICE_SHEET: '共修登記',
+    CLASS_SHEET: '會館課登記',
 
     // Refresh interval in milliseconds (5 minutes)
     REFRESH_INTERVAL: 5 * 60 * 1000,
@@ -213,10 +216,202 @@ async function fetchFormResponsesData() {
     }
 }
 
+// Fetch meditation sheet to build name -> team mapping
+async function fetchMemberTeams() {
+    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEDITATION_SHEET)}`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csvText = await response.text();
+        const lines = csvText.split('\n');
+        const memberTeams = {}; // name -> team
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // Parse CSV line
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            for (const char of line) {
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim());
+
+            // Column 0 = team, Column 1 = name
+            const teamName = values[0];
+            const memberName = values[1];
+
+            if (teamName && memberName) {
+                memberTeams[memberName] = teamName;
+            }
+        }
+
+        console.log('Member teams mapping:', Object.keys(memberTeams).length, 'members');
+        return memberTeams;
+    } catch (error) {
+        console.error('Error fetching member teams:', error);
+        return {};
+    }
+}
+
+// Fetch all sheets and calculate dual streaks: solo (meditation only) and activity (any)
+async function fetchMemberStreaks() {
+    const getSheetUrl = (sheetName) =>
+        `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+
+    try {
+        const [medResp, pracResp, classResp] = await Promise.all([
+            fetch(getSheetUrl(CONFIG.MEDITATION_SHEET)),
+            fetch(getSheetUrl(CONFIG.PRACTICE_SHEET)),
+            fetch(getSheetUrl(CONFIG.CLASS_SHEET))
+        ]);
+
+        const [medCSV, pracCSV, classCSV] = await Promise.all([
+            medResp.ok ? medResp.text() : '',
+            pracResp.ok ? pracResp.text() : '',
+            classResp.ok ? classResp.text() : ''
+        ]);
+
+        // Parse CSV line helper
+        const parseCSVLine = (line) => {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            for (const char of line) {
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+                else current += char;
+            }
+            values.push(current.trim());
+            return values;
+        };
+
+        // Parse date helper
+        const parseDate = (dateStr) => {
+            const parts = dateStr.split('/');
+            const month = parseInt(parts[0]) || 1;
+            const day = parseInt(parts[1]) || 1;
+            const year = month < 6 ? 2026 : 2025;
+            return new Date(year, month - 1, day);
+        };
+
+        // Build member activity data
+        const memberActivity = {}; // name -> { dateStr -> { meditation, practice, class } }
+
+        const ensureMember = (name, dateStr) => {
+            if (!memberActivity[name]) memberActivity[name] = {};
+            if (!memberActivity[name][dateStr]) memberActivity[name][dateStr] = {};
+        };
+
+        // Parse meditation
+        if (medCSV) {
+            const lines = medCSV.split('\n').map(parseCSVLine);
+            const dates = lines[0]?.slice(3) || [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    const dateStr = dates[j - 3];
+                    if (!dateStr || !dateStr.includes('/')) continue; // Skip empty/invalid dates
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].meditation = true;
+                    }
+                }
+            }
+        }
+
+        // Parse practice
+        if (pracCSV) {
+            const lines = pracCSV.split('\n').map(parseCSVLine);
+            const dates = lines[1]?.slice(3) || [];
+            for (let i = 2; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    const dateStr = dates[j - 3];
+                    if (!dateStr || !dateStr.includes('/')) continue;
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].practice = true;
+                    }
+                }
+            }
+        }
+
+        // Parse class
+        if (classCSV) {
+            const lines = classCSV.split('\n').map(parseCSVLine);
+            const dates = lines[0]?.slice(4) || [];
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 5) continue;
+                const name = row[1];
+                if (!name) continue;
+                for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                    const dateStr = dates[j - 4];
+                    if (!dateStr || !dateStr.includes('/')) continue;
+                    if ((parseFloat(row[j]) || 0) > 0) {
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].class = true;
+                    }
+                }
+            }
+        }
+
+        // Calculate streaks
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+
+        const calcStreak = (dateStrs) => {
+            if (dateStrs.length === 0) return 0;
+            const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
+            const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
+            if (last < yesterday) return 0;
+            let streak = 1;
+            for (let i = sorted.length - 2; i >= 0; i--) {
+                const curr = new Date(sorted[i + 1].date); curr.setHours(0, 0, 0, 0);
+                const prev = new Date(sorted[i].date); prev.setHours(0, 0, 0, 0);
+                if ((curr - prev) / (1000 * 60 * 60 * 24) === 1) streak++;
+                else break;
+            }
+            return streak;
+        };
+
+        const streaks = {};
+        for (const [name, days] of Object.entries(memberActivity)) {
+            const soloD = Object.keys(days).filter(d => days[d].meditation);
+            const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
+            streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
+        }
+
+        return streaks;
+    } catch (error) {
+        console.error('Error fetching member streaks:', error);
+        return {};
+    }
+}
+
 // ========================================
 // Data Processing
 // ========================================
-function processFormResponses(rows) {
+function processFormResponses(rows, memberTeams = {}, memberStreaks = {}) {
     let totalMinutes = 0;
     let totalSessions = 0;
     let longestSession = { minutes: 0, name: '' };
@@ -226,14 +421,15 @@ function processFormResponses(rows) {
     for (const row of rows) {
         const rawName = row[CONFIG.COLUMNS.NAME] || '';
         const name = cleanName(rawName);
-        const team = row[CONFIG.COLUMNS.TEAM] || '';
+        // Use memberTeams mapping from meditation sheet (more accurate)
+        const team = memberTeams[name] || row[CONFIG.COLUMNS.TEAM] || '';
         const minutes = parseFloat(row[CONFIG.COLUMNS.MINUTES]) || 0;
         // Points = minutes (1 minute = 1 point)
         const points = minutes;
         const date = row[CONFIG.COLUMNS.DATE] || '';
         const timestamp = row[CONFIG.COLUMNS.TIMESTAMP] || '';
 
-        if (!team) continue;
+        if (!name) continue;
 
         // Find matching team config
         const teamConfig = getTeamConfig(team);
@@ -246,6 +442,9 @@ function processFormResponses(rows) {
             longestSession = { minutes, name };
         }
 
+        // Get streaks from pre-calculated data
+        const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
+
         // Recent activity
         recentActivities.push({
             name,
@@ -254,6 +453,8 @@ function processFormResponses(rows) {
             points,
             date,
             timestamp,
+            soloStreak: streakData.solo,
+            activityStreak: streakData.activity
         });
     }
 
@@ -432,11 +633,19 @@ function renderActivityFeed(activities) {
 
     container.innerHTML = activities.map(activity => {
         const config = getTeamConfig(activity.team);
+        // Dual streak badges
+        const activityBadge = activity.activityStreak > 0 ? `<span class="activity-streak act" title="${activity.activityStreak} 天精進連續">🔥${activity.activityStreak}</span>` : '';
+        const soloBadge = activity.soloStreak > 0 ? `<span class="activity-streak solo" title="${activity.soloStreak} 天獨修連續">🧘${activity.soloStreak}</span>` : '';
+        const streakBadges = activityBadge + soloBadge;
+        const memberUrl = `./member.html?name=${encodeURIComponent(activity.name)}&team=${encodeURIComponent(activity.team)}`;
+        const nameDisplay = activity.name
+            ? `<a href="${memberUrl}" class="activity-name-link">${activity.name}</a>`
+            : '匿名';
         return `
       <div class="activity-item ${config.color}">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
-          <div class="activity-name">${activity.name || '匿名'}</div>
+          <div class="activity-name">${nameDisplay}${streakBadges}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
         <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
@@ -474,17 +683,19 @@ async function loadData() {
     try {
         console.log('Fetching data from Google Sheets...');
 
-        // Fetch both data sources in parallel
-        const [totalsData, formRows] = await Promise.all([
+        // Fetch all data sources in parallel
+        const [totalsData, formRows, memberTeams, memberStreaks] = await Promise.all([
             fetchTotalsData(),
-            fetchFormResponsesData()
+            fetchFormResponsesData(),
+            fetchMemberTeams(),
+            fetchMemberStreaks()
         ]);
 
         console.log('Totals data:', totalsData);
         console.log(`Form responses: ${formRows.length} rows`);
 
         // Process form responses for activity feed and stats
-        const formData = processFormResponses(formRows);
+        const formData = processFormResponses(formRows, memberTeams, memberStreaks);
 
         // Combine data
         const data = {
