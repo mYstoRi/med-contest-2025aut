@@ -128,7 +128,7 @@ async function fetchFormResponsesData() {
 
 // Fetch meditation sheet to build name -> team mapping
 async function fetchMemberTeams() {
-    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.MEDITATION_SHEET)}`;
+    const url = getSheetUrl(CONFIG.SHEETS.MEDITATION);
 
     try {
         const response = await fetch(url);
