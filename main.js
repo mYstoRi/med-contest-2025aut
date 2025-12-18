@@ -325,9 +325,11 @@ async function fetchMemberStreaks() {
                 const name = row[1];
                 if (!name) continue;
                 for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    const dateStr = dates[j - 3];
+                    if (!dateStr || !dateStr.includes('/')) continue; // Skip empty/invalid dates
                     if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dates[j - 3]);
-                        memberActivity[name][dates[j - 3]].meditation = true;
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].meditation = true;
                     }
                 }
             }
@@ -343,9 +345,11 @@ async function fetchMemberStreaks() {
                 const name = row[1];
                 if (!name) continue;
                 for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                    const dateStr = dates[j - 3];
+                    if (!dateStr || !dateStr.includes('/')) continue;
                     if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dates[j - 3]);
-                        memberActivity[name][dates[j - 3]].practice = true;
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].practice = true;
                     }
                 }
             }
@@ -361,9 +365,11 @@ async function fetchMemberStreaks() {
                 const name = row[1];
                 if (!name) continue;
                 for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                    const dateStr = dates[j - 4];
+                    if (!dateStr || !dateStr.includes('/')) continue;
                     if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dates[j - 4]);
-                        memberActivity[name][dates[j - 4]].class = true;
+                        ensureMember(name, dateStr);
+                        memberActivity[name][dateStr].class = true;
                     }
                 }
             }
@@ -396,12 +402,17 @@ async function fetchMemberStreaks() {
         }
 
         console.log('Member streaks calculated:', Object.keys(streaks).length);
+        console.log('Today:', today.toISOString(), 'Yesterday:', yesterday.toISOString());
         // Debug: log a sample member's activity data
         const sampleNames = Object.keys(memberActivity).slice(0, 3);
         for (const name of sampleNames) {
+            const actDates = Object.keys(memberActivity[name]).filter(d =>
+                memberActivity[name][d].meditation || memberActivity[name][d].practice || memberActivity[name][d].class
+            );
             console.log(`Debug ${name}:`, {
-                dates: Object.keys(memberActivity[name]),
-                solo: Object.keys(memberActivity[name]).filter(d => memberActivity[name][d].meditation),
+                allDates: Object.keys(memberActivity[name]),
+                activityDates: actDates,
+                parsedLast: actDates.length > 0 ? parseDate(actDates[actDates.length - 1]).toISOString() : 'none',
                 streak: streaks[name]
             });
         }
