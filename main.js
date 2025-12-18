@@ -396,6 +396,15 @@ async function fetchMemberStreaks() {
         }
 
         console.log('Member streaks calculated:', Object.keys(streaks).length);
+        // Debug: log a sample member's activity data
+        const sampleNames = Object.keys(memberActivity).slice(0, 3);
+        for (const name of sampleNames) {
+            console.log(`Debug ${name}:`, {
+                dates: Object.keys(memberActivity[name]),
+                solo: Object.keys(memberActivity[name]).filter(d => memberActivity[name][d].meditation),
+                streak: streaks[name]
+            });
+        }
         return streaks;
     } catch (error) {
         console.error('Error fetching member streaks:', error);
