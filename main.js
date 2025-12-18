@@ -9,8 +9,8 @@ const CONFIG = {
     SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
     FORM_RESPONSES_SHEET: '表單回應 1',
     MEDITATION_SHEET: '禪定登記',
-    PRACTICE_SHEET: '共修',
-    CLASS_SHEET: '會館課程',
+    PRACTICE_SHEET: '共修登記',
+    CLASS_SHEET: '會館課登記',
 
     // Refresh interval in milliseconds (5 minutes)
     REFRESH_INTERVAL: 5 * 60 * 1000,
