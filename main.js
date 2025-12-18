@@ -385,13 +385,26 @@ async function fetchMemberStreaks() {
             const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
             const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
             if (debugFirst && dateStrs.length > 0) {
+                // Show all sorted dates
                 console.log('calcStreak debug:', {
-                    inputDates: dateStrs,
+                    inputLength: dateStrs.length,
+                    sortedDates: sorted.map(x => x.str),
                     sortedLast: sorted[sorted.length - 1].str,
-                    lastTime: last.getTime(),
-                    yesterdayTime: yesterday.getTime(),
-                    comparison: last.getTime() < yesterday.getTime()
+                    lastVsYesterday: { last: last.getTime(), yesterday: yesterday.getTime(), isLessThan: last < yesterday }
                 });
+                // Calculate day differences for the last 5 dates
+                if (sorted.length >= 2) {
+                    const diffs = [];
+                    for (let i = sorted.length - 1; i >= Math.max(0, sorted.length - 5); i--) {
+                        if (i > 0) {
+                            const curr = new Date(sorted[i].date); curr.setHours(0, 0, 0, 0);
+                            const prev = new Date(sorted[i - 1].date); prev.setHours(0, 0, 0, 0);
+                            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+                            diffs.push({ from: sorted[i - 1].str, to: sorted[i].str, diffDays });
+                        }
+                    }
+                    console.log('Day diffs:', diffs);
+                }
                 debugFirst = false;
             }
             if (last < yesterday) return 0;
