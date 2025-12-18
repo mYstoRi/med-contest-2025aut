@@ -1,72 +1,22 @@
 // ========================================
-// Team Page Configuration
+// Imports from Shared Modules
 // ========================================
-const CONFIG = {
-    // Published CSV URLs - Base spreadsheet ID
-    SPREADSHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
-
-    // Sheet names for different score sources
-    SHEETS: {
-        MEDITATION: '禪定登記',    // 禪定 - meditation minutes
-        PRACTICE: '共修登記',      // 共修 - practice sessions  
-        CLASS: '會館課登記',       // 會館課 - classes
-    },
-
-    // Points configuration
-    POINTS: {
-        CLASS_PER_ATTENDANCE: 50,  // 50 points per class
-    },
-
-    // Published totals CSV URL (for existing team data)
-    TOTALS_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRziNeMKSXQhVUGcaUtS9VmGUhpWMiBDlo1H_U8p2pE5-0vx40TAZCTWjCZ9qy8rJTqjaDwp4od2WS2/pub?gid=288289321&single=true&output=csv',
-
-    // Team configuration
-    TEAMS: [
-        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3, memberColIndex: 2 },
-        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6, memberColIndex: 5 },
-        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9, memberColIndex: 8 },
-        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12, memberColIndex: 11 },
-    ],
-
-    // Score source colors (for stacked bar)
-    SOURCE_COLORS: {
-        meditation: '#8b5cf6',  // Purple - 禪定
-        practice: '#10b981',   // Green - 共修
-        class: '#f59e0b',      // Amber - 會館課
-    }
-};
+import { CONFIG, getTeamConfig } from './config.js';
+import {
+    parseCSVLine,
+    parseDate,
+    getSheetUrl,
+    calculateCurrentStreak,
+    initTheme,
+    initSettings
+} from './utils.js';
 
 // ========================================
-// CSV Helper
-// ========================================
-function parseCSVLine(line) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    for (const char of line) {
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            values.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    values.push(current.trim());
-    return values;
-}
-
-function getSheetCSVUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${CONFIG.SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-// ========================================
-// Data Fetching
+// Sheet Fetching
 // ========================================
 async function fetchSheetData(sheetName) {
     try {
-        const url = getSheetCSVUrl(sheetName);
+        const url = getSheetUrl(sheetName);
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -910,14 +860,6 @@ function showError(message) {
             </div>
         `;
     }
-}
-
-// ========================================
-// Theme Support
-// ========================================
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
 }
 
 // ========================================

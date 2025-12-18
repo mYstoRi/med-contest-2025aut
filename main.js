@@ -1,44 +1,20 @@
 // ========================================
-// Configuration
+// Imports from Shared Modules
 // ========================================
-const CONFIG = {
-    // Published CSV URLs
-    TOTALS_CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRziNeMKSXQhVUGcaUtS9VmGUhpWMiBDlo1H_U8p2pE5-0vx40TAZCTWjCZ9qy8rJTqjaDwp4od2WS2/pub?gid=288289321&single=true&output=csv',
-
-    // Original form responses for activity feed
-    SHEET_ID: '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s',
-    FORM_RESPONSES_SHEET: '表單回應 1',
-    MEDITATION_SHEET: '禪定登記',
-    PRACTICE_SHEET: '共修登記',
-    CLASS_SHEET: '會館課登記',
-
-    // Refresh interval in milliseconds (5 minutes)
-    REFRESH_INTERVAL: 5 * 60 * 1000,
-
-    // Team configuration (order matters for parsing totals sheet)
-    // colIndex = score column, memberColIndex = member name column (for members section)
-    TEAMS: [
-        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3, memberColIndex: 2 },
-        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6, memberColIndex: 5 },
-        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9, memberColIndex: 8 },
-        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12, memberColIndex: 11 },
-    ],
-
-    // Column indices in the form responses (0-indexed)
-    // Based on actual CSV: timestamp, name, date, minutes, ...
-    COLUMNS: {
-        TIMESTAMP: 0,    // 時間戳記
-        NAME: 1,         // 姓名
-        DATE: 2,         // 這是哪一天的記錄呢？(日期)
-        MINUTES: 3,      // 我坐了幾分鐘？
-        TEAM: 4,         // 我屬於 (team) - may vary based on form
-        BONUS: 5,        // 加成
-        POINTS: 6,       // 積分
-    }
-};
+import { CONFIG, getTeamConfig } from './config.js';
+import {
+    parseCSVLine,
+    parseDate,
+    cleanName,
+    formatNumber,
+    formatDate,
+    getSheetUrl,
+    initTheme,
+    initSettings
+} from './utils.js';
 
 // ========================================
-// Utility Functions
+// Utility Functions (Page-specific)
 // ========================================
 function parseCSV(csvText) {
     const lines = csvText.split('\n');
@@ -47,78 +23,12 @@ function parseCSV(csvText) {
     for (let i = 1; i < lines.length; i++) { // Skip header row
         const line = lines[i].trim();
         if (!line) continue;
-
-        // Parse CSV considering quoted values
-        const values = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (const char of line) {
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                values.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        values.push(current.trim());
-
-        result.push(values);
+        result.push(parseCSVLine(line));
     }
 
     return result;
 }
 
-function formatNumber(num) {
-    return num.toLocaleString('zh-TW');
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    try {
-        // Handle yyyy/mm/dd format from Google Sheets
-        if (dateStr.includes('/')) {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) {
-                const [year, month, day] = parts.map(Number);
-                return `${month}月${day}日`;
-            }
-        }
-        // Fallback: try native parsing
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-            return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
-        }
-        return dateStr;
-    } catch {
-        return dateStr;
-    }
-}
-
-function cleanName(name) {
-    if (!name) return '';
-    // Remove common prefixes like "我叫" (My name is)
-    return name.replace(/^我叫/, '').trim();
-}
-
-function getTeamConfig(teamName) {
-    if (!teamName) return CONFIG.TEAMS[0];
-
-    // Try exact match first
-    const exactMatch = CONFIG.TEAMS.find(t => t.name === teamName);
-    if (exactMatch) return exactMatch;
-
-    // Try partial match (short name or contains)
-    const partialMatch = CONFIG.TEAMS.find(t =>
-        teamName.includes(t.shortName) || t.name.includes(teamName)
-    );
-    if (partialMatch) return partialMatch;
-
-    // Default fallback
-    return { name: teamName, id: 0, color: 'team-1', shortName: teamName.slice(0, 2) };
-}
 
 // ========================================
 // Data Fetching
@@ -127,7 +37,7 @@ async function fetchTotalsData() {
     try {
         const response = await fetch(CONFIG.TOTALS_CSV_URL);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status} `);
         }
         const csvText = await response.text();
         return parseTotalsCSV(csvText);
@@ -268,44 +178,19 @@ async function fetchMemberTeams() {
 
 // Fetch all sheets and calculate dual streaks: solo (meditation only) and activity (any)
 async function fetchMemberStreaks() {
-    const getSheetUrl = (sheetName) =>
-        `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-
     try {
         const [medResp, pracResp, classResp] = await Promise.all([
-            fetch(getSheetUrl(CONFIG.MEDITATION_SHEET)),
-            fetch(getSheetUrl(CONFIG.PRACTICE_SHEET)),
-            fetch(getSheetUrl(CONFIG.CLASS_SHEET))
+            fetch(getSheetUrl(CONFIG.SHEETS.MEDITATION)),
+            fetch(getSheetUrl(CONFIG.SHEETS.PRACTICE)),
+            fetch(getSheetUrl(CONFIG.SHEETS.CLASS))
         ]);
+
 
         const [medCSV, pracCSV, classCSV] = await Promise.all([
             medResp.ok ? medResp.text() : '',
             pracResp.ok ? pracResp.text() : '',
             classResp.ok ? classResp.text() : ''
         ]);
-
-        // Parse CSV line helper
-        const parseCSVLine = (line) => {
-            const values = [];
-            let current = '';
-            let inQuotes = false;
-            for (const char of line) {
-                if (char === '"') inQuotes = !inQuotes;
-                else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
-                else current += char;
-            }
-            values.push(current.trim());
-            return values;
-        };
-
-        // Parse date helper
-        const parseDate = (dateStr) => {
-            const parts = dateStr.split('/');
-            const month = parseInt(parts[0]) || 1;
-            const day = parseInt(parts[1]) || 1;
-            const year = month < 6 ? 2026 : 2025;
-            return new Date(year, month - 1, day);
-        };
 
         // Build member activity data
         const memberActivity = {}; // name -> { dateStr -> { meditation, practice, class } }
@@ -739,42 +624,3 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🧘 Meditation Dashboard initialized');
     console.log(`Auto-refresh interval: ${CONFIG.REFRESH_INTERVAL / 1000 / 60} minutes`);
 });
-
-// ========================================
-// Theme & Settings
-// ========================================
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-}
-
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-}
-
-function initSettings() {
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsPanel = document.getElementById('settingsPanel');
-    const themeToggle = document.getElementById('themeToggle');
-
-    if (settingsBtn && settingsPanel) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            settingsPanel.classList.toggle('open');
-        });
-
-        // Close panel when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
-                settingsPanel.classList.remove('open');
-            }
-        });
-    }
-
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-    }
-}
