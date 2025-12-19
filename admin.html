@@ -345,6 +345,102 @@
                 opacity: 1;
             }
         }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .admin-container {
+                padding: var(--spacing-md);
+            }
+
+            .admin-header {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+                text-align: center;
+            }
+
+            .admin-title {
+                font-size: 1.2rem;
+            }
+
+            .admin-tabs {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .admin-tab {
+                padding: var(--spacing-xs) var(--spacing-sm);
+                font-size: 0.85rem;
+            }
+
+            .admin-card {
+                padding: var(--spacing-md);
+            }
+
+            .card-header {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+                align-items: flex-start;
+            }
+
+            .add-form {
+                grid-template-columns: 1fr;
+            }
+
+            /* Responsive table */
+            .data-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: var(--spacing-xs);
+                font-size: 0.85rem;
+            }
+
+            /* Hide less important columns on mobile */
+            .data-table th:nth-child(2),
+            .data-table td:nth-child(2) {
+                display: none;
+            }
+
+            .login-container {
+                margin: 50px 15px;
+                padding: var(--spacing-lg);
+            }
+
+            .login-title {
+                font-size: 1.3rem;
+            }
+
+            .toast {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .admin-title {
+                font-size: 1rem;
+            }
+
+            .status-badge {
+                font-size: 0.65rem;
+                padding: 2px 6px;
+            }
+
+            .action-btn {
+                padding: 4px 8px;
+                font-size: 0.75rem;
+            }
+
+            /* Stack form elements vertically on very small screens */
+            .form-input {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 
