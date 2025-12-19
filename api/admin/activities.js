@@ -41,6 +41,7 @@ const SHEETS = {
     MEDITATION: '禪定登記',
     PRACTICE: '共修登記',
     CLASS: '會館課登記',
+    FORM_RESPONSES: '表單回應 1',
 };
 
 function getSheetUrl(sheetName) {
@@ -71,16 +72,21 @@ function parseCSVLine(line) {
  */
 async function getActivitiesFromSheetsCache() {
     const activities = [];
+    let formCSV = ''; // Declare at function scope for individual sessions
 
     try {
-        // First try cache
+        // First try cache for structured data
         let [meditation, practice, classData] = await Promise.all([
             getCache(CACHE_KEYS.MEDITATION),
             getCache(CACHE_KEYS.PRACTICE),
             getCache(CACHE_KEYS.CLASS),
         ]);
 
-        // If cache is empty, fetch directly from Google Sheets
+        // Always fetch Form Responses for individual meditation sessions
+        const formResp = await fetch(getSheetUrl(SHEETS.FORM_RESPONSES));
+        formCSV = formResp.ok ? await formResp.text() : '';
+
+        // If cache is empty, fetch structured data directly from Google Sheets
         if (!meditation?.members || meditation.members.length === 0) {
             console.log('Cache empty, fetching directly from Google Sheets');
 
@@ -184,24 +190,45 @@ async function getActivitiesFromSheetsCache() {
             }
         }
 
-        // Convert meditation data to activities
+        // Build member name -> team mapping from meditation sheet
+        const memberTeamMap = {};
         if (meditation?.members) {
             for (const member of meditation.members) {
-                if (member.daily) {
-                    for (const [date, value] of Object.entries(member.daily)) {
-                        if (value > 0) {
-                            activities.push({
-                                id: `sheets_med_${member.team}_${member.name}_${date}`,
-                                type: 'meditation',
-                                team: member.team,
-                                member: member.name,
-                                date,
-                                value,
-                                source: 'sheets'
-                            });
-                        }
-                    }
-                }
+                memberTeamMap[member.name] = member.team;
+            }
+        }
+
+        // Parse Form Responses for individual meditation sessions
+        // Columns: timestamp(0), name(1), date(2), minutes(3), team(4)
+        if (formCSV) {
+            const lines = formCSV.split('\n').map(parseCSVLine);
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+
+                const timestamp = row[0];
+                const name = row[1];
+                const date = row[2];
+                const minutes = parseFloat(row[3]) || 0;
+                const team = row[4] || memberTeamMap[name] || 'Unknown';
+
+                if (!name || minutes <= 0) continue;
+
+                // Use timestamp for unique ID so each session is separate
+                const uniqueId = timestamp ?
+                    `form_med_${name}_${timestamp.replace(/[^a-zA-Z0-9]/g, '')}` :
+                    `form_med_${name}_${date}_${Math.random().toString(36).substring(7)}`;
+
+                activities.push({
+                    id: uniqueId,
+                    type: 'meditation',
+                    team,
+                    member: name,
+                    date,
+                    value: minutes,
+                    timestamp,
+                    source: 'form'
+                });
             }
         }
 
