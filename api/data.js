@@ -41,7 +41,7 @@ function parseCSVLine(line) {
 // Parse meditation sheet into structured data
 function parseMeditationSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
-    const dates = lines[0]?.slice(3) || []; // Skip team, name, total columns
+    const dates = lines[0]?.slice(3) || []; // Row 0 has dates from col 3
     const members = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -50,16 +50,17 @@ function parseMeditationSheet(csvText) {
 
         const team = row[0];
         const name = row[1];
-        const total = parseFloat(row[2]) || 0;
         if (!team || !name) continue;
 
-        // Build daily data
+        // Build daily data and calculate total from daily values
         const daily = {};
+        let total = 0;
         for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
             const date = dates[j - 3];
             const minutes = parseFloat(row[j]) || 0;
             if (date && minutes > 0) {
                 daily[date] = minutes;
+                total += minutes;
             }
         }
 
@@ -70,30 +71,39 @@ function parseMeditationSheet(csvText) {
 }
 
 // Parse practice sheet into structured data
+// Row 0 = points per session, Row 1 = dates, Data from row 2
 function parsePracticeSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
-    const dates = lines[0]?.slice(3) || [];
+    const pointsRow = lines[0] || []; // Row 0 = points per session
+    const datesRow = lines[1] || []; // Row 1 = dates
+    const dates = datesRow.slice(3) || [];
     const members = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    // Data starts from row 2
+    for (let i = 2; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 3) continue;
 
         const team = row[0];
         const name = row[1];
-        const total = parseFloat(row[2]) || 0;
         if (!team || !name) continue;
 
+        // Calculate points from attendance * points per session
         const daily = {};
+        let total = 0;
         for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
             const date = dates[j - 3];
             const attended = parseFloat(row[j]) || 0;
-            if (date && attended > 0) {
-                daily[date] = attended;
+            const points = parseFloat(pointsRow[j]) || 0;
+            if (date && attended > 0 && points > 0) {
+                daily[date] = points;
+                total += points;
             }
         }
 
-        members.push({ team, name, total, daily });
+        if (total > 0) {
+            members.push({ team, name, total, daily });
+        }
     }
 
     return { dates, members };
