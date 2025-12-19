@@ -864,6 +864,154 @@ function showError(message) {
 }
 
 // ========================================
+// API Data Processing
+// ========================================
+
+// Calculate team data from API response (includes ALL members, not just navigators)
+function getTeamDataFromAPI(apiData, teamName) {
+    const team = CONFIG.TEAMS.find(t => t.name === teamName);
+    if (!team) return null;
+
+    const teamData = {
+        name: team.name,
+        shortName: team.shortName,
+        color: team.color,
+        id: team.id,
+        level: 1, // Default level
+        totalScore: 0,
+        members: []
+    };
+
+    // Collect all members for this team with their breakdowns
+    const memberTotals = {}; // { name: { meditation, practice, class } }
+
+    // Process meditation
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            if (m.team === teamName) {
+                if (!memberTotals[m.name]) memberTotals[m.name] = { meditation: 0, practice: 0, class: 0 };
+                memberTotals[m.name].meditation = m.total || 0;
+            }
+        }
+    }
+
+    // Process practice
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            if (m.team === teamName) {
+                if (!memberTotals[m.name]) memberTotals[m.name] = { meditation: 0, practice: 0, class: 0 };
+                memberTotals[m.name].practice = m.total || 0;
+            }
+        }
+    }
+
+    // Process class
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            if (m.team === teamName) {
+                if (!memberTotals[m.name]) memberTotals[m.name] = { meditation: 0, practice: 0, class: 0 };
+                memberTotals[m.name].class = m.points || 0;
+            }
+        }
+    }
+
+    // Build members list and calculate team total
+    for (const [name, scores] of Object.entries(memberTotals)) {
+        const total = scores.meditation + scores.practice + scores.class;
+        teamData.members.push({ name, points: total });
+        teamData.totalScore += total;
+    }
+
+    // Sort by points descending
+    teamData.members.sort((a, b) => b.points - a.points);
+
+    return teamData;
+}
+
+// Build score breakdown from API data for chart/breakdown display
+function getScoreBreakdownFromAPI(apiData) {
+    const breakdown = {
+        meditation: {},
+        practice: {},
+        class: {},
+        daily: {}
+    };
+
+    // Process meditation
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            if (!breakdown.meditation[m.team]) {
+                breakdown.meditation[m.team] = { total: 0, members: {} };
+            }
+            breakdown.meditation[m.team].members[m.name] = m.total || 0;
+            breakdown.meditation[m.team].total += m.total || 0;
+        }
+    }
+
+    // Process practice
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            if (!breakdown.practice[m.team]) {
+                breakdown.practice[m.team] = { total: 0, members: {} };
+            }
+            breakdown.practice[m.team].members[m.name] = m.total || 0;
+            breakdown.practice[m.team].total += m.total || 0;
+        }
+    }
+
+    // Process class
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            if (!breakdown.class[m.team]) {
+                breakdown.class[m.team] = { total: 0, members: {} };
+            }
+            breakdown.class[m.team].members[m.name] = m.points || 0;
+            breakdown.class[m.team].total += m.points || 0;
+        }
+    }
+
+    // Build daily cumulative data for chart
+    const allDates = new Set();
+    const teamDailyScores = {};
+
+    // Collect all dates and daily scores
+    for (const sheet of ['meditation', 'practice', 'class']) {
+        const members = apiData[sheet]?.members || [];
+        for (const m of members) {
+            if (m.daily) {
+                if (!teamDailyScores[m.team]) teamDailyScores[m.team] = {};
+                for (const [date, value] of Object.entries(m.daily)) {
+                    allDates.add(date);
+                    if (!teamDailyScores[m.team][date]) teamDailyScores[m.team][date] = 0;
+                    teamDailyScores[m.team][date] += sheet === 'class' ? value * 50 : value;
+                }
+            }
+        }
+    }
+
+    // Sort dates and build cumulative
+    const sortedDates = Array.from(allDates).sort((a, b) => {
+        const [am, ad] = a.split('/').map(Number);
+        const [bm, bd] = b.split('/').map(Number);
+        if (am !== bm) return am - bm;
+        return ad - bd;
+    });
+
+    for (const team of Object.keys(teamDailyScores)) {
+        let cumulative = 0;
+        breakdown.daily[team] = {
+            dates: sortedDates,
+            cumulative: sortedDates.map(date => {
+                cumulative += teamDailyScores[team][date] || 0;
+                return cumulative;
+            })
+        };
+    }
+
+    return breakdown;
+}
+
+// ========================================
 // Initialize
 // ========================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -880,18 +1028,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        // Fetch all data in parallel
-        const [totalsData, scoreBreakdown] = await Promise.all([
-            fetchTotalsData(),
-            fetchAllScoreData()
-        ]);
+        console.log('Fetching data from API...');
 
-        const teamData = totalsData.teams[teamName];
+        // Single API call to get all data
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        const apiData = await response.json();
+
+        console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
+
+        // Get team data from API (includes ALL members)
+        const teamData = getTeamDataFromAPI(apiData, teamName);
 
         if (!teamData) {
             showError(`找不到隊伍: ${teamName}<br>Team not found`);
             return;
         }
+
+        // Build score breakdown from API
+        const scoreBreakdown = getScoreBreakdownFromAPI(apiData);
 
         // Update page title
         document.title = `${teamData.name} | 隊伍詳情`;
