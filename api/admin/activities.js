@@ -199,7 +199,7 @@ async function getActivitiesFromSheetsCache() {
         }
 
         // Parse Form Responses for individual meditation sessions
-        // Columns: timestamp(0), name(1), date(2), minutes(3), team(4)
+        // Columns: timestamp(0), name(1), date(2), minutes(3), [comments(4) - NOT team]
         if (formCSV) {
             const lines = formCSV.split('\n').map(parseCSVLine);
             for (let i = 1; i < lines.length; i++) {
@@ -210,7 +210,8 @@ async function getActivitiesFromSheetsCache() {
                 const name = row[1];
                 const date = row[2];
                 const minutes = parseFloat(row[3]) || 0;
-                const team = row[4] || memberTeamMap[name] || 'Unknown';
+                // Use memberTeamMap ONLY - column 4 contains comments, not team
+                const team = memberTeamMap[name] || 'Unknown';
 
                 if (!name || minutes <= 0) continue;
 
