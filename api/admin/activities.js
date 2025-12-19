@@ -279,23 +279,23 @@ async function getActivitiesFromSheetsCache() {
     }
 
     // Sort activities by date (newest first)
-    // Parse date helper for MM/DD format
-    const parseDate = (dateStr) => {
-        if (!dateStr) return new Date(0);
+    // Parse date helper for MM/DD format - returns milliseconds for comparison
+    const parseDateToMs = (dateStr) => {
+        if (!dateStr) return 0;
         const parts = dateStr.split('/');
-        const month = parseInt(parts[0]) || 1;
-        const day = parseInt(parts[1]) || 1;
+        const month = parseInt(parts[0], 10) || 1;
+        const day = parseInt(parts[1], 10) || 1;
         // Assume year based on month (Dec-May = spans new year)
         const year = month < 6 ? 2026 : 2025;
-        return new Date(year, month - 1, day);
+        return new Date(year, month - 1, day).getTime();
     };
 
-    // Parse timestamp helper for form responses
-    const parseTimestamp = (ts) => {
-        if (!ts) return null;
+    // Parse timestamp helper for form responses - returns milliseconds
+    const parseTimestampToMs = (ts) => {
+        if (!ts) return 0;
         try {
             const parts = ts.split(' ');
-            if (parts.length < 2) return null;
+            if (parts.length < 2) return 0;
             const datePart = parts[0];
             let timePart = parts[1];
             const isPM = timePart.includes('下午');
@@ -305,23 +305,28 @@ async function getActivitiesFromSheetsCache() {
             if (isPM && hours < 12) hour24 = hours + 12;
             if (!isPM && hours === 12) hour24 = 0;
             const [year, month, day] = datePart.split('/').map(Number);
-            return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0);
+            return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0).getTime();
         } catch {
-            return null;
+            return 0;
         }
     };
 
     activities.sort((a, b) => {
-        // Try timestamp first (form responses have this)
-        const tsA = a.timestamp ? parseTimestamp(a.timestamp) : null;
-        const tsB = b.timestamp ? parseTimestamp(b.timestamp) : null;
+        // Get timestamps as milliseconds (0 if not available)
+        const tsA = a.timestamp ? parseTimestampToMs(a.timestamp) : 0;
+        const tsB = b.timestamp ? parseTimestampToMs(b.timestamp) : 0;
 
-        if (tsA && tsB) return tsB - tsA; // Both have timestamps - compare them
-        if (tsA) return -1; // Only A has timestamp - A comes first
-        if (tsB) return 1;  // Only B has timestamp - B comes first
+        // If both have valid timestamps, compare them
+        if (tsA > 0 && tsB > 0) return tsB - tsA;
 
-        // Fall back to date comparison
-        return parseDate(b.date) - parseDate(a.date);
+        // If only one has timestamp, prioritize it
+        if (tsA > 0) return -1;
+        if (tsB > 0) return 1;
+
+        // Fall back to date comparison (also in milliseconds)
+        const dateA = parseDateToMs(a.date);
+        const dateB = parseDateToMs(b.date);
+        return dateB - dateA;
     });
 
     return activities;
