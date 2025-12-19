@@ -339,22 +339,20 @@ async function getActivitiesFromSheetsCache() {
         }
     };
 
+    // Sort by activity date (newest first), then by timestamp within same date
     activities.sort((a, b) => {
-        // Get time in milliseconds for each activity
-        // Prefer timestamp (has time precision), fall back to date
-        const getTimeMs = (activity) => {
-            if (activity.timestamp) {
-                const ts = parseTimestampToMs(activity.timestamp);
-                if (ts > 0) return ts;
-            }
-            return parseDateToMs(activity.date);
-        };
+        const dateA = parseDateToMs(a.date);
+        const dateB = parseDateToMs(b.date);
 
-        const timeA = getTimeMs(a);
-        const timeB = getTimeMs(b);
+        // Primary sort: by activity date (descending)
+        if (dateB !== dateA) {
+            return dateB - dateA;
+        }
 
-        // Sort descending (newest first)
-        return timeB - timeA;
+        // Secondary sort: by submission time if same date (descending)
+        const tsA = a.timestamp ? parseTimestampToMs(a.timestamp) : 0;
+        const tsB = b.timestamp ? parseTimestampToMs(b.timestamp) : 0;
+        return tsB - tsA;
     });
 
     return activities;
