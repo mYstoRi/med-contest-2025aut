@@ -79,27 +79,23 @@ async function getMembersFromSheetsCache() {
             pracResp.ok ? pracResp.text() : '',
         ]);
 
-        // Parse meditation sheet - calculate totals from daily values
+        // Parse meditation sheet - row 0 is empty, row 1 has headers, dates at col 4+, data from row 2
         if (medCSV) {
             const lines = medCSV.split('\n').map(parseCSVLine);
-            const headerRow = lines[0] || [];
+            const headerRow = lines[1] || []; // Header is in row 1 (row 0 is empty)
 
-            console.log('Meditation header row length:', headerRow.length);
-            console.log('Meditation header cols 0-5:', headerRow.slice(0, 6));
-            console.log('Meditation first data row:', lines[1]?.slice(0, 6));
-
-            // Find date columns (start at col 3, filter for '/')
+            // Find date columns (start at col 4, col 3 is "總計")
             const dateColumns = [];
-            for (let c = 3; c < headerRow.length; c++) {
+            for (let c = 4; c < headerRow.length; c++) {
                 if (headerRow[c] && headerRow[c].includes('/')) {
                     dateColumns.push(c);
                 }
             }
-            console.log('Found date columns:', dateColumns.length);
 
-            for (let i = 1; i < lines.length; i++) {
+            // Data starts at row 2
+            for (let i = 2; i < lines.length; i++) {
                 const row = lines[i];
-                if (!row || row.length < 3) continue;
+                if (!row || row.length < 4) continue;
                 const team = row[0], name = row[1];
                 if (!team || !name) continue;
 
