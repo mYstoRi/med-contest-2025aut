@@ -408,11 +408,30 @@ export default async function handler(req, res) {
                 filtered = filtered.filter(a => a.source === source);
             }
 
-            // Sort by date descending, then by type
+            // Sort by date descending (use proper date parsing, not string compare)
+            const parseDateToMs = (dateStr) => {
+                if (!dateStr) return 0;
+                const parts = dateStr.split('/');
+                let year, month, day;
+                if (parts.length === 3) {
+                    year = parseInt(parts[0], 10);
+                    month = parseInt(parts[1], 10);
+                    day = parseInt(parts[2], 10);
+                } else if (parts.length === 2) {
+                    month = parseInt(parts[0], 10) || 1;
+                    day = parseInt(parts[1], 10) || 1;
+                    year = month < 6 ? 2026 : 2025;
+                } else {
+                    return 0;
+                }
+                return new Date(year, month - 1, day).getTime();
+            };
+
             filtered.sort((a, b) => {
-                // Sort by date (simple string compare works for M/D format within same month)
-                if (a.date !== b.date) {
-                    return b.date.localeCompare(a.date);
+                const dateA = parseDateToMs(a.date);
+                const dateB = parseDateToMs(b.date);
+                if (dateB !== dateA) {
+                    return dateB - dateA;
                 }
                 return a.type.localeCompare(b.type);
             });
