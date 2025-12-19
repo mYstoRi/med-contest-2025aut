@@ -97,9 +97,17 @@ async function getActivitiesFromSheetsCache() {
             ]);
 
             // Parse meditation CSV
+            // Columns: team(0), name(1), total(2), dates(3+)
             if (medCSV) {
                 const lines = medCSV.split('\n').map(parseCSVLine);
-                const dates = lines[0]?.slice(3) || [];
+                const headerRow = lines[0] || [];
+                // Filter to only valid dates (contain '/')
+                const dateColumns = [];
+                for (let c = 3; c < headerRow.length; c++) {
+                    if (headerRow[c] && headerRow[c].includes('/')) {
+                        dateColumns.push({ col: c, date: headerRow[c] });
+                    }
+                }
                 meditation = { members: [] };
 
                 for (let i = 1; i < lines.length; i++) {
@@ -109,19 +117,25 @@ async function getActivitiesFromSheetsCache() {
                     if (!team || !name) continue;
 
                     const daily = {};
-                    for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                        const date = dates[j - 3];
-                        const value = parseFloat(row[j]) || 0;
-                        if (date && value > 0) daily[date] = value;
+                    for (const { col, date } of dateColumns) {
+                        const value = parseFloat(row[col]) || 0;
+                        if (value > 0) daily[date] = value;
                     }
                     meditation.members.push({ team, name, daily });
                 }
             }
 
             // Parse practice CSV
+            // Columns: team(0), name(1), total(2), dates(3+)
             if (pracCSV) {
                 const lines = pracCSV.split('\n').map(parseCSVLine);
-                const dates = lines[0]?.slice(3) || [];
+                const headerRow = lines[0] || [];
+                const dateColumns = [];
+                for (let c = 3; c < headerRow.length; c++) {
+                    if (headerRow[c] && headerRow[c].includes('/')) {
+                        dateColumns.push({ col: c, date: headerRow[c] });
+                    }
+                }
                 practice = { members: [] };
 
                 for (let i = 1; i < lines.length; i++) {
@@ -131,34 +145,41 @@ async function getActivitiesFromSheetsCache() {
                     if (!team || !name) continue;
 
                     const daily = {};
-                    for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                        const date = dates[j - 3];
-                        const value = parseFloat(row[j]) || 0;
-                        if (date && value > 0) daily[date] = value;
+                    for (const { col, date } of dateColumns) {
+                        const value = parseFloat(row[col]) || 0;
+                        if (value > 0) daily[date] = value;
                     }
                     practice.members.push({ team, name, daily });
                 }
             }
 
+
             // Parse class CSV
+            // Columns: team(0), name(1), tier(2), class(3), total(4), dates(5+)
             if (classCSV) {
                 const lines = classCSV.split('\n').map(parseCSVLine);
-                const dates = lines[0]?.slice(4) || [];
+                const headerRow = lines[0] || [];
+                const dateColumns = [];
+                for (let c = 5; c < headerRow.length; c++) {
+                    if (headerRow[c] && headerRow[c].includes('/')) {
+                        dateColumns.push({ col: c, date: headerRow[c] });
+                    }
+                }
                 classData = { members: [] };
 
                 for (let i = 1; i < lines.length; i++) {
                     const row = lines[i];
-                    if (!row || row.length < 4) continue;
+                    if (!row || row.length < 5) continue;
                     const team = row[0], name = row[1];
                     if (!team || !name) continue;
 
                     const daily = {};
-                    for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
-                        const date = dates[j - 4];
-                        const value = parseFloat(row[j]) || 0;
-                        if (date && value > 0) daily[date] = value;
+                    for (const { col, date } of dateColumns) {
+                        const value = parseFloat(row[col]) || 0;
+                        if (value > 0) daily[date] = value;
                     }
                     classData.members.push({ team, name, daily });
+
                 }
             }
         }
