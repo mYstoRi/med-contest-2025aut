@@ -164,7 +164,8 @@ async function getMembersFromSheetsCache() {
         }
 
         // Parse class sheet - EXACT LOGIC FROM team.js
-        // Row 0 = dates header, data from row 1, column 3 = total count
+        // Row 0 = dates header, data from row 1
+        // Column 0 = team, 1 = name, 2 = tier, 3 = total count
         if (classCSV) {
             const lines = classCSV.split('\n').map(parseCSVLine);
 
@@ -172,7 +173,7 @@ async function getMembersFromSheetsCache() {
                 const row = lines[i];
                 if (!row || row.length < 4) continue;
 
-                const team = row[0], name = row[1];
+                const team = row[0], name = row[1], tier = row[2];
                 // Column 3 has the total count
                 const totalClasses = parseFloat(row[3]) || 0;
                 if (!team || !name) continue;
@@ -182,11 +183,13 @@ async function getMembersFromSheetsCache() {
                 const key = `${team}:${name}`;
                 if (membersMap.has(key)) {
                     membersMap.get(key).classTotal = classPoints;
+                    membersMap.get(key).tier = tier || '';
                 } else {
                     membersMap.set(key, {
                         id: `sheets_${team}_${name}`,
                         name,
                         team,
+                        tier: tier || '',
                         meditationTotal: 0,
                         practiceTotal: 0,
                         classTotal: classPoints,
@@ -255,9 +258,13 @@ export default async function handler(req, res) {
                 filtered = filtered.filter(m => m.team === team);
             }
 
-            // Sort by team then name
+            // Sort by team, then by tier (領航員 first), then by name
             filtered.sort((a, b) => {
                 if (a.team !== b.team) return a.team.localeCompare(b.team);
+                // 領航員 (navigator) comes before other tiers
+                const aIsNavigator = a.tier === '領航員' ? 0 : 1;
+                const bIsNavigator = b.tier === '領航員' ? 0 : 1;
+                if (aIsNavigator !== bIsNavigator) return aIsNavigator - bIsNavigator;
                 return a.name.localeCompare(b.name);
             });
 
