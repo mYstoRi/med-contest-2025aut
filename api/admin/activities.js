@@ -35,20 +35,133 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
+// Google Sheets config
+const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
+const SHEETS = {
+    MEDITATION: '禪定登記',
+    PRACTICE: '共修登記',
+    CLASS: '會館課登記',
+};
+
+function getSheetUrl(sheetName) {
+    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (const char of line) {
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    values.push(current.trim());
+    return values;
+}
+
 /**
- * Get activities from Google Sheets cache (meditation, practice, class)
+ * Get activities from Google Sheets (direct fetch)
  * Converts the denormalized Sheets data to normalized activity format
  */
 async function getActivitiesFromSheetsCache() {
     const activities = [];
 
     try {
-        // Get cached data from main data endpoint's cache
-        const [meditation, practice, classData] = await Promise.all([
+        // First try cache
+        let [meditation, practice, classData] = await Promise.all([
             getCache(CACHE_KEYS.MEDITATION),
             getCache(CACHE_KEYS.PRACTICE),
             getCache(CACHE_KEYS.CLASS),
         ]);
+
+        // If cache is empty, fetch directly from Google Sheets
+        if (!meditation?.members || meditation.members.length === 0) {
+            console.log('Cache empty, fetching directly from Google Sheets');
+
+            const [medResp, pracResp, classResp] = await Promise.all([
+                fetch(getSheetUrl(SHEETS.MEDITATION)),
+                fetch(getSheetUrl(SHEETS.PRACTICE)),
+                fetch(getSheetUrl(SHEETS.CLASS)),
+            ]);
+
+            const [medCSV, pracCSV, classCSV] = await Promise.all([
+                medResp.ok ? medResp.text() : '',
+                pracResp.ok ? pracResp.text() : '',
+                classResp.ok ? classResp.text() : '',
+            ]);
+
+            // Parse meditation CSV
+            if (medCSV) {
+                const lines = medCSV.split('\n').map(parseCSVLine);
+                const dates = lines[0]?.slice(3) || [];
+                meditation = { members: [] };
+
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i];
+                    if (!row || row.length < 3) continue;
+                    const team = row[0], name = row[1];
+                    if (!team || !name) continue;
+
+                    const daily = {};
+                    for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                        const date = dates[j - 3];
+                        const value = parseFloat(row[j]) || 0;
+                        if (date && value > 0) daily[date] = value;
+                    }
+                    meditation.members.push({ team, name, daily });
+                }
+            }
+
+            // Parse practice CSV
+            if (pracCSV) {
+                const lines = pracCSV.split('\n').map(parseCSVLine);
+                const dates = lines[0]?.slice(3) || [];
+                practice = { members: [] };
+
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i];
+                    if (!row || row.length < 3) continue;
+                    const team = row[0], name = row[1];
+                    if (!team || !name) continue;
+
+                    const daily = {};
+                    for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
+                        const date = dates[j - 3];
+                        const value = parseFloat(row[j]) || 0;
+                        if (date && value > 0) daily[date] = value;
+                    }
+                    practice.members.push({ team, name, daily });
+                }
+            }
+
+            // Parse class CSV
+            if (classCSV) {
+                const lines = classCSV.split('\n').map(parseCSVLine);
+                const dates = lines[0]?.slice(4) || [];
+                classData = { members: [] };
+
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i];
+                    if (!row || row.length < 4) continue;
+                    const team = row[0], name = row[1];
+                    if (!team || !name) continue;
+
+                    const daily = {};
+                    for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
+                        const date = dates[j - 4];
+                        const value = parseFloat(row[j]) || 0;
+                        if (date && value > 0) daily[date] = value;
+                    }
+                    classData.members.push({ team, name, daily });
+                }
+            }
+        }
 
         // Convert meditation data to activities
         if (meditation?.members) {
@@ -113,7 +226,7 @@ async function getActivitiesFromSheetsCache() {
             }
         }
     } catch (error) {
-        console.error('Failed to get activities from Sheets cache:', error);
+        console.error('Failed to get activities from Sheets:', error);
     }
 
     return activities;

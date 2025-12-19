@@ -32,14 +32,60 @@ function generateId() {
     return 'm_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 }
 
+// Google Sheets config
+const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
+const MEDITATION_SHEET = '禪定登記';
+
+function getSheetUrl(sheetName) {
+    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (const char of line) {
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    values.push(current.trim());
+    return values;
+}
+
 /**
- * Get members from Google Sheets cache
+ * Get members from Google Sheets (direct fetch if cache empty)
  */
 async function getMembersFromSheetsCache() {
     const membersMap = new Map(); // Use Map to dedupe by name+team
 
     try {
-        const meditation = await getCache(CACHE_KEYS.MEDITATION);
+        let meditation = await getCache(CACHE_KEYS.MEDITATION);
+
+        // If cache is empty, fetch directly from Google Sheets
+        if (!meditation?.members || meditation.members.length === 0) {
+            console.log('Cache empty, fetching members directly from Google Sheets');
+
+            const resp = await fetch(getSheetUrl(MEDITATION_SHEET));
+            if (resp.ok) {
+                const csv = await resp.text();
+                const lines = csv.split('\n').map(parseCSVLine);
+
+                meditation = { members: [] };
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i];
+                    if (!row || row.length < 2) continue;
+                    const team = row[0], name = row[1];
+                    if (!team || !name) continue;
+                    meditation.members.push({ team, name });
+                }
+            }
+        }
 
         if (meditation?.members) {
             for (const member of meditation.members) {
@@ -55,11 +101,12 @@ async function getMembersFromSheetsCache() {
             }
         }
     } catch (error) {
-        console.error('Failed to get members from Sheets cache:', error);
+        console.error('Failed to get members from Sheets:', error);
     }
 
     return Array.from(membersMap.values());
 }
+
 
 export default async function handler(req, res) {
     // Set CORS headers
