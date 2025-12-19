@@ -79,20 +79,29 @@ async function getMembersFromSheetsCache() {
             pracResp.ok ? pracResp.text() : '',
         ]);
 
-        // Parse meditation sheet - row 0 empty, row 1 headers, data from row 2
-        // Columns: 0=team, 1=name, 2=tier, 3=total, 4+=dates
+        // Parse meditation sheet - columns: 0=team, 1=name, 2=tier OR total, 3=total (if tier exists)
+        // Try to detect structure: if col 2 is a number, use it as total; otherwise use col 3
         if (medCSV) {
             const lines = medCSV.split('\n').map(parseCSVLine);
 
-            // Data starts at row 2
-            for (let i = 2; i < lines.length; i++) {
+            // Skip header rows - find first row with team data
+            let dataStart = 0;
+            for (let i = 0; i < Math.min(3, lines.length); i++) {
                 const row = lines[i];
-                if (!row || row.length < 4) continue;
-                const team = row[0], name = row[1];
-                if (!team || !name) continue;
+                if (row && row[0] && row[1] && !row[0].includes('總計')) {
+                    dataStart = i;
+                    break;
+                }
+            }
 
-                // Column 3 has the pre-calculated total
-                const total = parseFloat(row[3]) || 0;
+            for (let i = dataStart; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 3) continue;
+                const team = row[0], name = row[1];
+                if (!team || !name || team.includes('總計') || team === '') continue;
+
+                // Try col 3 first, fall back to col 2, then try summing if both fail
+                let total = parseFloat(row[3]) || parseFloat(row[2]) || 0;
 
                 const key = `${team}:${name}`;
                 if (!membersMap.has(key)) {
