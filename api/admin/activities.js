@@ -278,6 +278,52 @@ async function getActivitiesFromSheetsCache() {
         console.error('Failed to get activities from Sheets:', error);
     }
 
+    // Sort activities by date (newest first)
+    // Parse date helper for MM/DD format
+    const parseDate = (dateStr) => {
+        if (!dateStr) return new Date(0);
+        const parts = dateStr.split('/');
+        const month = parseInt(parts[0]) || 1;
+        const day = parseInt(parts[1]) || 1;
+        // Assume year based on month (Dec-May = spans new year)
+        const year = month < 6 ? 2026 : 2025;
+        return new Date(year, month - 1, day);
+    };
+
+    // Parse timestamp helper for form responses
+    const parseTimestamp = (ts) => {
+        if (!ts) return null;
+        try {
+            const parts = ts.split(' ');
+            if (parts.length < 2) return null;
+            const datePart = parts[0];
+            let timePart = parts[1];
+            const isPM = timePart.includes('下午');
+            timePart = timePart.replace('下午', '').replace('上午', '');
+            const [hours, minutes, seconds] = timePart.split(':').map(Number);
+            let hour24 = hours;
+            if (isPM && hours < 12) hour24 = hours + 12;
+            if (!isPM && hours === 12) hour24 = 0;
+            const [year, month, day] = datePart.split('/').map(Number);
+            return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0);
+        } catch {
+            return null;
+        }
+    };
+
+    activities.sort((a, b) => {
+        // Try timestamp first (form responses have this)
+        const tsA = a.timestamp ? parseTimestamp(a.timestamp) : null;
+        const tsB = b.timestamp ? parseTimestamp(b.timestamp) : null;
+
+        if (tsA && tsB) return tsB - tsA; // Both have timestamps - compare them
+        if (tsA) return -1; // Only A has timestamp - A comes first
+        if (tsB) return 1;  // Only B has timestamp - B comes first
+
+        // Fall back to date comparison
+        return parseDate(b.date) - parseDate(a.date);
+    });
+
     return activities;
 }
 
