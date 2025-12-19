@@ -508,6 +508,117 @@ function showError(message) {
 }
 
 // ========================================
+// API Data Extraction
+// ========================================
+
+// Extract member meditation data from API
+function getMemberMeditationFromAPI(apiData, memberName, teamName) {
+    const dailyData = {};
+    let total = 0;
+
+    if (apiData.meditation?.members) {
+        const member = apiData.meditation.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            total = member.total || 0;
+            if (member.daily) {
+                Object.assign(dailyData, member.daily);
+            }
+        }
+    }
+
+    return { dailyData, total };
+}
+
+// Extract member practice data from API
+function getMemberPracticeFromAPI(apiData, memberName, teamName) {
+    const sessions = [];
+    let total = 0;
+
+    if (apiData.practice?.members) {
+        const member = apiData.practice.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            total = member.total || 0;
+            if (member.daily) {
+                for (const [date, points] of Object.entries(member.daily)) {
+                    sessions.push({ date, points });
+                }
+            }
+        }
+    }
+
+    return { sessions, total };
+}
+
+// Extract member class data from API
+function getMemberClassFromAPI(apiData, memberName, teamName) {
+    const sessions = [];
+    let totalPoints = 0;
+    let count = 0;
+
+    if (apiData.class?.members) {
+        const member = apiData.class.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            totalPoints = member.points || 0;
+            count = member.total || 0;
+            if (member.daily) {
+                for (const [date, attended] of Object.entries(member.daily)) {
+                    if (attended > 0) {
+                        sessions.push({ date, count: attended });
+                    }
+                }
+            }
+        }
+    }
+
+    return { sessions, total: totalPoints, count };
+}
+
+// Get member rank from API data
+function getMemberRankFromAPI(apiData, memberName, teamName) {
+    const memberTotals = {}; // { "team:name": { meditation, practice, class } }
+
+    // Collect all members' totals
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].meditation = m.total || 0;
+        }
+    }
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].practice = m.total || 0;
+        }
+    }
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].class = m.points || 0;
+        }
+    }
+
+    // Filter by team and sort
+    const teamMembers = Object.values(memberTotals)
+        .filter(m => m.team === teamName)
+        .map(m => ({ ...m, total: m.meditation + m.practice + m.class }))
+        .sort((a, b) => b.total - a.total);
+
+    const rank = teamMembers.findIndex(m => m.name === memberName) + 1;
+    const totalMembers = teamMembers.length;
+
+    return { rank, total: totalMembers };
+}
+
+// ========================================
 // Initialize
 // ========================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -527,20 +638,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.title = `${memberName} | 個人詳情`;
 
     try {
-        // Fetch all sheet data
-        const [meditationCSV, practiceCSV, classCSV] = await Promise.all([
-            fetchSheetData(CONFIG.SHEETS.MEDITATION),
-            fetchSheetData(CONFIG.SHEETS.PRACTICE),
-            fetchSheetData(CONFIG.SHEETS.CLASS)
-        ]);
+        console.log('Fetching data from API...');
 
-        // Parse member data
-        const meditation = parseMemberMeditation(meditationCSV, memberName, teamName);
-        const practice = parseMemberPractice(practiceCSV, memberName, teamName);
-        const classData = parseMemberClass(classCSV, memberName, teamName);
+        // Single API call to get all data
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        const apiData = await response.json();
+
+        console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
+
+        // Extract member data from API
+        const meditation = getMemberMeditationFromAPI(apiData, memberName, teamName);
+        const practice = getMemberPracticeFromAPI(apiData, memberName, teamName);
+        const classData = getMemberClassFromAPI(apiData, memberName, teamName);
 
         // Get ranking
-        const rank = getMemberRank(meditationCSV, practiceCSV, classCSV, memberName, teamName);
+        const rank = getMemberRankFromAPI(apiData, memberName, teamName);
 
         // Calculate streaks (solo and activity)
         const streaks = calculateStreaks(meditation.dailyData, practice.sessions, classData.sessions);
