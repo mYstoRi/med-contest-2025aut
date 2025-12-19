@@ -120,29 +120,35 @@ async function getMembersFromSheetsCache() {
             }
         }
 
-        // Parse practice sheet - calculate totals from daily values
+        // Parse practice sheet - row 0 has point values, row 1 has dates, data starts row 2
         if (pracCSV) {
             const lines = pracCSV.split('\n').map(parseCSVLine);
-            const headerRow = lines[0] || [];
+            const pointsRow = lines[0] || []; // Point values per session
+            const dateRow = lines[1] || [];   // Dates in row 1
 
             // Find date columns (start at col 3, filter for '/')
             const dateColumns = [];
-            for (let c = 3; c < headerRow.length; c++) {
-                if (headerRow[c] && headerRow[c].includes('/')) {
-                    dateColumns.push(c);
+            for (let c = 3; c < dateRow.length; c++) {
+                if (dateRow[c] && dateRow[c].includes('/')) {
+                    const points = parseFloat(pointsRow[c]) || 0;
+                    dateColumns.push({ col: c, points });
                 }
             }
 
-            for (let i = 1; i < lines.length; i++) {
+            // Data starts at row 2
+            for (let i = 2; i < lines.length; i++) {
                 const row = lines[i];
                 if (!row || row.length < 3) continue;
                 const team = row[0], name = row[1];
                 if (!team || !name) continue;
 
-                // Sum all daily values for total
+                // Sum points for each attended session
                 let total = 0;
-                for (const col of dateColumns) {
-                    total += parseFloat(row[col]) || 0;
+                for (const { col, points } of dateColumns) {
+                    const attended = parseFloat(row[col]) || 0;
+                    if (attended > 0) {
+                        total += points > 0 ? points : 1; // Use point value if available
+                    }
                 }
 
                 const key = `${team}:${name}`;
