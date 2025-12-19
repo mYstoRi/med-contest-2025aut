@@ -10,6 +10,7 @@ export default defineConfig({
                 team: resolve(__dirname, 'team.html'),
                 member: resolve(__dirname, 'member.html'),
                 admin: resolve(__dirname, 'admin.html'),
+                register: resolve(__dirname, 'register.html'),
             },
         },
     },
