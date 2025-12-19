@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理後台 | Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <style>
+        /* Admin-specific styles */
+        .admin-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .admin-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        /* Login form */
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: var(--spacing-xl);
+            background: var(--glass-bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+        }
+
+        .login-title {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+        }
+
+        .form-btn {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .form-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            text-align: center;
+            margin-top: var(--spacing-sm);
+            font-size: 0.9rem;
+        }
+
+        /* Tabs */
+        .admin-tabs {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-lg);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: var(--spacing-xs);
+        }
+
+        .admin-tab {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .admin-tab:hover {
+            background: var(--glass-bg);
+            color: var(--text-primary);
+        }
+
+        .admin-tab.active {
+            background: var(--glass-bg);
+            color: var(--accent-primary);
+            border-bottom: 2px solid var(--accent-primary);
+        }
+
+        /* Tab panels */
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Cards */
+        .admin-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: var(--spacing-sm);
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .data-table th {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Action buttons */
+        .action-btn {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .action-btn.danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Add form */
+        .add-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .add-form .form-input {
+            padding: var(--spacing-xs) var(--spacing-sm);
+        }
+
+        .add-form .action-btn {
+            align-self: end;
+        }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge.meditation {
+            background: rgba(139, 92, 246, 0.2);
+            color: #a78bfa;
+        }
+
+        .status-badge.practice {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .status-badge.class {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        /* Cache status */
+        .cache-status {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-sm);
+        }
+
+        .cache-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+
+        .cache-indicator.stale {
+            background: #f59e0b;
+        }
+
+        .cache-indicator.empty {
+            background: #ef4444;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Loading */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            border-color: #10b981;
+        }
+
+        .toast.error {
+            border-color: #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-effects">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <h1 class="login-title">🔐 管理後台</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">密碼 Password</label>
+                <input type="password" id="passwordInput" class="form-input" placeholder="Enter admin password"
+                    required>
+            </div>
+            <button type="submit" class="form-btn" id="loginBtn">登入 Login</button>
+            <p id="loginError" class="error-msg hidden"></p>
+        </form>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="admin-container hidden">
+        <header class="admin-header">
+            <h1 class="admin-title">🔧 管理後台 Admin Dashboard</h1>
+            <button class="logout-btn" id="logoutBtn">登出 Logout</button>
+        </header>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="activities">📊 活動記錄</button>
+            <button class="admin-tab" data-tab="members">👥 成員管理</button>
+            <button class="admin-tab" data-tab="cache">⚡ 快取管理</button>
+        </div>
+
+        <!-- Activities Panel -->
+        <div id="activitiesPanel" class="tab-panel active">
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">新增活動 Add Activity</h2>
+                </div>
+                <form id="addActivityForm" class="add-form">
+                    <select id="activityType" class="form-input" required>
+                        <option value="">類型 Type</option>
+                        <option value="meditation">🧘 禪定</option>
+                        <option value="practice">🙏 共修</option>
+                        <option value="class">📚 會館課</option>
+                    </select>
+                    <select id="activityTeam" class="form-input" required>
+                        <option value="">隊伍 Team</option>
+                        <option value="晨絜家中隊">晨絜家中隊</option>
+                        <option value="明緯家中隊">明緯家中隊</option>
+                        <option value="敬涵家中隊">敬涵家中隊</option>
+                        <option value="宗翰家中隊">宗翰家中隊</option>
+                    </select>
+                    <input type="text" id="activityMember" class="form-input" placeholder="成員名稱 Member" required>
+                    <input type="text" id="activityDate" class="form-input" placeholder="日期 Date (12/19)" required>
+                    <input type="number" id="activityValue" class="form-input" placeholder="數值 Value" value="1">
+                    <button type="submit" class="action-btn primary">➕ 新增</button>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">活動列表 Activities</h2>
+                    <button class="action-btn primary" id="refreshActivities">🔄 刷新</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>類型</th>
+                            <th>隊伍</th>
+                            <th>成員</th>
+                            <th>日期</th>
+                            <th>數值</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activitiesTable">
+                        <tr>
+                            <td colspan="6" style="text-align: center;">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Members Panel -->
+        <div id="membersPanel" class="tab-panel">
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">新增成員 Add Member</h2>
+                </div>
+                <form id="addMemberForm" class="add-form">
+                    <input type="text" id="memberName" class="form-input" placeholder="成員名稱 Name" required>
+                    <select id="memberTeam" class="form-input" required>
+                        <option value="">隊伍 Team</option>
+                        <option value="晨絜家中隊">晨絜家中隊</option>
+                        <option value="明緯家中隊">明緯家中隊</option>
+                        <option value="敬涵家中隊">敬涵家中隊</option>
+                        <option value="宗翰家中隊">宗翰家中隊</option>
+                    </select>
+                    <button type="submit" class="action-btn primary">➕ 新增</button>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">成員列表 Members</h2>
+                    <button class="action-btn primary" id="refreshMembers">🔄 刷新</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>名稱</th>
+                            <th>隊伍</th>
+                            <th>加入時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="membersTable">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Cache Panel -->
+        <div id="cachePanel" class="tab-panel">
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">⚡ 快取狀態 Cache Status</h2>
+                </div>
+                <div class="cache-status" id="cacheStatus">
+                    <div class="cache-indicator"></div>
+                    <span>檢查中...</span>
+                </div>
+                <div style="margin-top: var(--spacing-md);">
+                    <button class="action-btn primary" id="invalidateCache">🔄 強制刷新快取</button>
+                    <p style="margin-top: var(--spacing-sm); color: var(--text-secondary); font-size: 0.9rem;">
+                        這將清除所有快取資料，下次訪問時會從 Google Sheets 重新獲取。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./admin.js"></script>
+</body>
+
+</html>
