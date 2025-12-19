@@ -226,7 +226,7 @@ async function loadMembers() {
         }
 
         tbody.innerHTML = data.members.map(member => {
-            const totalScore = (member.meditationTotal || 0) + (member.practiceTotal || 0);
+            const totalScore = (member.meditationTotal || 0) + (member.practiceTotal || 0) + (member.classTotal || 0);
             return `
             <tr>
                 <td>${member.name}</td>

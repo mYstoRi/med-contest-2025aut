@@ -59,6 +59,8 @@ function parseCSVLine(line) {
 }
 
 const PRACTICE_SHEET = '共修登記';
+const CLASS_SHEET = '會館課登記';
+const CLASS_POINTS_PER_ATTENDANCE = 50;
 
 /**
  * Get members from Google Sheets (direct fetch)
@@ -68,15 +70,17 @@ async function getMembersFromSheetsCache() {
     const membersMap = new Map(); // Use Map to dedupe by name+team
 
     try {
-        // Fetch both meditation and practice sheets
-        const [medResp, pracResp] = await Promise.all([
+        // Fetch meditation, practice, and class sheets
+        const [medResp, pracResp, classResp] = await Promise.all([
             fetch(getSheetUrl(MEDITATION_SHEET)),
             fetch(getSheetUrl(PRACTICE_SHEET)),
+            fetch(getSheetUrl(CLASS_SHEET)),
         ]);
 
-        const [medCSV, pracCSV] = await Promise.all([
+        const [medCSV, pracCSV, classCSV] = await Promise.all([
             medResp.ok ? medResp.text() : '',
             pracResp.ok ? pracResp.text() : '',
+            classResp.ok ? classResp.text() : '',
         ]);
 
         // Parse meditation sheet - EXACT LOGIC FROM team.js
@@ -106,6 +110,7 @@ async function getMembersFromSheetsCache() {
                         team,
                         meditationTotal: totalMinutes,
                         practiceTotal: 0,
+                        classTotal: 0,
                         source: 'sheets'
                     });
                 } else {
@@ -151,6 +156,40 @@ async function getMembersFromSheetsCache() {
                         team,
                         meditationTotal: 0,
                         practiceTotal: totalPoints,
+                        classTotal: 0,
+                        source: 'sheets'
+                    });
+                }
+            }
+        }
+
+        // Parse class sheet - EXACT LOGIC FROM team.js
+        // Row 0 = dates header, data from row 1, column 3 = total count
+        if (classCSV) {
+            const lines = classCSV.split('\n').map(parseCSVLine);
+
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 4) continue;
+
+                const team = row[0], name = row[1];
+                // Column 3 has the total count
+                const totalClasses = parseFloat(row[3]) || 0;
+                if (!team || !name) continue;
+
+                const classPoints = totalClasses * CLASS_POINTS_PER_ATTENDANCE;
+
+                const key = `${team}:${name}`;
+                if (membersMap.has(key)) {
+                    membersMap.get(key).classTotal = classPoints;
+                } else {
+                    membersMap.set(key, {
+                        id: `sheets_${team}_${name}`,
+                        name,
+                        team,
+                        meditationTotal: 0,
+                        practiceTotal: 0,
+                        classTotal: classPoints,
                         source: 'sheets'
                     });
                 }
