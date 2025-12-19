@@ -564,36 +564,250 @@ function showError(message) {
 // ========================================
 // Main App
 // ========================================
+
+// Calculate team scores from API data (meditation + practice + class)
+function calculateTeamScores(apiData) {
+    const teamScores = {};
+    const teamMembers = {};
+    let topMeditator = { name: '--', points: 0, team: '' };
+
+    // Initialize teams
+    for (const team of CONFIG.TEAMS) {
+        teamScores[team.name] = 0;
+        teamMembers[team.name] = [];
+    }
+
+    // Helper to accumulate member scores
+    const memberTotals = {}; // { "team:name": { meditation, practice, class } }
+
+    // Process meditation data
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].meditation = m.total || 0;
+        }
+    }
+
+    // Process practice data (total is in points)
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].practice = m.total || 0;
+        }
+    }
+
+    // Process class data (has points field)
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].class = m.points || 0;
+        }
+    }
+
+    // Aggregate into team scores and find top meditator
+    for (const data of Object.values(memberTotals)) {
+        const total = data.meditation + data.practice + data.class;
+        teamScores[data.team] = (teamScores[data.team] || 0) + total;
+        teamMembers[data.team].push({ name: data.name, points: total });
+
+        if (data.meditation > topMeditator.points) {
+            topMeditator = { name: data.name, points: data.meditation, team: data.team };
+        }
+    }
+
+    // Sort members by points
+    for (const team of Object.keys(teamMembers)) {
+        teamMembers[team].sort((a, b) => b.points - a.points);
+    }
+
+    return { teamScores, teamMembers, topMeditator };
+}
+
+// Process recent activity from API for activity feed
+function processRecentActivity(recentActivity, apiData) {
+    // Build member -> team mapping from meditation data
+    const memberTeams = {};
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            memberTeams[m.name] = m.team;
+        }
+    }
+
+    // Calculate streaks from daily data
+    const memberStreaks = calculateStreaksFromAPI(apiData);
+
+    let totalMinutes = 0;
+    let totalSessions = 0;
+    let longestSession = { minutes: 0, name: '' };
+    const activities = [];
+
+    for (const item of recentActivity || []) {
+        const name = cleanName(item.name || '');
+        const team = memberTeams[name] || 'Unknown';
+        const minutes = item.minutes || 0;
+        const date = item.date || '';
+
+        totalMinutes += minutes;
+        totalSessions++;
+
+        if (minutes > longestSession.minutes) {
+            longestSession = { minutes, name };
+        }
+
+        const streaks = memberStreaks[name] || { solo: 0, activity: 0 };
+
+        activities.push({
+            name,
+            team,
+            minutes,
+            date,
+            points: minutes, // meditation points = minutes
+            soloStreak: streaks.solo,
+            activityStreak: streaks.activity
+        });
+    }
+
+    return {
+        activities: activities.slice(0, 20),
+        totalMinutes,
+        totalSessions,
+        longestSession
+    };
+}
+
+// Calculate streaks from API daily data
+function calculateStreaksFromAPI(apiData) {
+    const memberActivity = {}; // { name: { dateStr: { meditation, practice, class } } }
+
+    const ensureMember = (name, date) => {
+        if (!memberActivity[name]) memberActivity[name] = {};
+        if (!memberActivity[name][date]) memberActivity[name][date] = { meditation: false, practice: false, class: false };
+    };
+
+    // Process meditation daily
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].meditation = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process practice daily
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].practice = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process class daily
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].class = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate streaks
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const calcStreak = (dateStrs) => {
+        if (dateStrs.length === 0) return 0;
+
+        const sortedDates = dateStrs
+            .map(d => {
+                const parts = d.split('/');
+                const month = parseInt(parts[0]) || 1;
+                const day = parseInt(parts[1]) || 1;
+                const year = month < 6 ? 2026 : 2025;
+                return { str: d, date: new Date(year, month - 1, day) };
+            })
+            .sort((a, b) => a.date - b.date);
+
+        const lastDate = new Date(sortedDates[sortedDates.length - 1].date);
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate < yesterday) return 0;
+
+        let streak = 1;
+        for (let i = sortedDates.length - 2; i >= 0; i--) {
+            const curr = new Date(sortedDates[i + 1].date);
+            const prev = new Date(sortedDates[i].date);
+            curr.setHours(0, 0, 0, 0);
+            prev.setHours(0, 0, 0, 0);
+            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+            if (diffDays === 1) streak++;
+            else break;
+        }
+        return streak;
+    };
+
+    const streaks = {};
+    for (const [name, days] of Object.entries(memberActivity)) {
+        const soloD = Object.keys(days).filter(d => days[d].meditation);
+        const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
+        streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
+    }
+
+    return streaks;
+}
+
 async function loadData() {
     try {
-        console.log('Fetching data from Google Sheets...');
+        console.log('Fetching data from API...');
 
-        // Fetch all data sources in parallel
-        const [totalsData, formRows, memberTeams, memberStreaks] = await Promise.all([
-            fetchTotalsData(),
-            fetchFormResponsesData(),
-            fetchMemberTeams(),
-            fetchMemberStreaks()
-        ]);
+        // Single API call replaces 4 separate sheet fetches
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        const apiData = await response.json();
 
-        console.log('Totals data:', totalsData);
-        console.log(`Form responses: ${formRows.length} rows`);
+        console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
 
-        // Process form responses for activity feed and stats
-        const formData = processFormResponses(formRows, memberTeams, memberStreaks);
+        // Calculate team scores from API data
+        const { teamScores, teamMembers, topMeditator } = calculateTeamScores(apiData);
+
+        // Process recent activity for activity feed and stats
+        const activityData = processRecentActivity(apiData.recentActivity, apiData);
 
         // Combine data
         const data = {
-            teamScores: totalsData.teamScores,
-            topMeditator: totalsData.topMeditator,
-            teamMembers: totalsData.teamMembers,
-            totalMinutes: formData.totalMinutes,
-            totalSessions: formData.totalSessions,
-            longestSession: formData.longestSession,
-            recentActivities: formData.recentActivities,
+            teamScores,
+            topMeditator,
+            teamMembers,
+            totalMinutes: activityData.totalMinutes,
+            totalSessions: activityData.totalSessions,
+            longestSession: activityData.longestSession,
+            recentActivities: activityData.activities,
         };
 
-        console.log('Combined data:', data);
+        console.log('Processed data:', data);
 
         renderTeamBars(data.teamScores);
         renderStats(data);
