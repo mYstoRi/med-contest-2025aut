@@ -35,6 +35,91 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
+/**
+ * Get activities from Google Sheets cache (meditation, practice, class)
+ * Converts the denormalized Sheets data to normalized activity format
+ */
+async function getActivitiesFromSheetsCache() {
+    const activities = [];
+
+    try {
+        // Get cached data from main data endpoint's cache
+        const [meditation, practice, classData] = await Promise.all([
+            getCache(CACHE_KEYS.MEDITATION),
+            getCache(CACHE_KEYS.PRACTICE),
+            getCache(CACHE_KEYS.CLASS),
+        ]);
+
+        // Convert meditation data to activities
+        if (meditation?.members) {
+            for (const member of meditation.members) {
+                if (member.daily) {
+                    for (const [date, value] of Object.entries(member.daily)) {
+                        if (value > 0) {
+                            activities.push({
+                                id: `sheets_med_${member.team}_${member.name}_${date}`,
+                                type: 'meditation',
+                                team: member.team,
+                                member: member.name,
+                                date,
+                                value,
+                                source: 'sheets'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Convert practice data to activities
+        if (practice?.members) {
+            for (const member of practice.members) {
+                if (member.daily) {
+                    for (const [date, value] of Object.entries(member.daily)) {
+                        if (value > 0) {
+                            activities.push({
+                                id: `sheets_prac_${member.team}_${member.name}_${date}`,
+                                type: 'practice',
+                                team: member.team,
+                                member: member.name,
+                                date,
+                                value,
+                                source: 'sheets'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Convert class data to activities
+        if (classData?.members) {
+            for (const member of classData.members) {
+                if (member.daily) {
+                    for (const [date, value] of Object.entries(member.daily)) {
+                        if (value > 0) {
+                            activities.push({
+                                id: `sheets_class_${member.team}_${member.name}_${date}`,
+                                type: 'class',
+                                team: member.team,
+                                member: member.name,
+                                date,
+                                value,
+                                source: 'sheets'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Failed to get activities from Sheets cache:', error);
+    }
+
+    return activities;
+}
+
+
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -52,13 +137,21 @@ export default async function handler(req, res) {
         if (!isAuthed) return;
     }
 
-    // GET /api/admin/activities - Get all activities (optionally filtered)
+    // GET /api/admin/activities - Get all activities (from Sheets cache + manually added)
     if (req.method === 'GET') {
         try {
-            const activities = await getActivities();
-            const { type, team, member, date } = req.query || {};
+            // Get manually added activities
+            const manualActivities = await getActivities();
 
-            let filtered = activities;
+            // Get activities from Google Sheets cache
+            const sheetsActivities = await getActivitiesFromSheetsCache();
+
+            // Merge: manual activities first (they can override)
+            const allActivities = [...sheetsActivities, ...manualActivities];
+
+            const { type, team, member, date, source } = req.query || {};
+
+            let filtered = allActivities;
 
             if (type && ACTIVITY_TYPES.includes(type)) {
                 filtered = filtered.filter(a => a.type === type);
@@ -72,9 +165,26 @@ export default async function handler(req, res) {
             if (date) {
                 filtered = filtered.filter(a => a.date === date);
             }
+            if (source) {
+                filtered = filtered.filter(a => a.source === source);
+            }
+
+            // Sort by date descending, then by type
+            filtered.sort((a, b) => {
+                // Sort by date (simple string compare works for M/D format within same month)
+                if (a.date !== b.date) {
+                    return b.date.localeCompare(a.date);
+                }
+                return a.type.localeCompare(b.type);
+            });
+
+            // Limit to most recent 100 for performance
+            filtered = filtered.slice(0, 100);
 
             return res.status(200).json({
                 count: filtered.length,
+                totalSheets: sheetsActivities.length,
+                totalManual: manualActivities.length,
                 activities: filtered
             });
         } catch (error) {

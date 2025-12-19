@@ -1,5 +1,5 @@
 import { requireAuth } from '../_lib/auth.js';
-import { getCache, setCache } from '../_lib/kv.js';
+import { getCache, setCache, CACHE_KEYS } from '../_lib/kv.js';
 
 /**
  * Get all members from cache
@@ -32,6 +32,35 @@ function generateId() {
     return 'm_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 }
 
+/**
+ * Get members from Google Sheets cache
+ */
+async function getMembersFromSheetsCache() {
+    const membersMap = new Map(); // Use Map to dedupe by name+team
+
+    try {
+        const meditation = await getCache(CACHE_KEYS.MEDITATION);
+
+        if (meditation?.members) {
+            for (const member of meditation.members) {
+                const key = `${member.team}:${member.name}`;
+                if (!membersMap.has(key)) {
+                    membersMap.set(key, {
+                        id: `sheets_${member.team}_${member.name}`,
+                        name: member.name,
+                        team: member.team,
+                        source: 'sheets'
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Failed to get members from Sheets cache:', error);
+    }
+
+    return Array.from(membersMap.values());
+}
+
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -49,19 +78,51 @@ export default async function handler(req, res) {
         if (!isAuthed) return;
     }
 
-    // GET /api/admin/members - Get all members
+    // GET /api/admin/members - Get all members (from Sheets + manually added)
     if (req.method === 'GET') {
         try {
-            const members = await getMembers();
+            const manualMembers = await getMembers();
+            const sheetsMembers = await getMembersFromSheetsCache();
+
+            // Merge: dedupe by name+team, prefer manual over sheets
+            const seenKeys = new Set();
+            const allMembers = [];
+
+            // Manual first (higher priority)
+            for (const m of manualMembers) {
+                const key = `${m.team}:${m.name}`;
+                if (!seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    allMembers.push(m);
+                }
+            }
+
+            // Then sheets
+            for (const m of sheetsMembers) {
+                const key = `${m.team}:${m.name}`;
+                if (!seenKeys.has(key)) {
+                    seenKeys.add(key);
+                    allMembers.push(m);
+                }
+            }
+
             const { team } = req.query || {};
 
-            let filtered = members;
+            let filtered = allMembers;
             if (team) {
                 filtered = filtered.filter(m => m.team === team);
             }
 
+            // Sort by team then name
+            filtered.sort((a, b) => {
+                if (a.team !== b.team) return a.team.localeCompare(b.team);
+                return a.name.localeCompare(b.name);
+            });
+
             return res.status(200).json({
                 count: filtered.length,
+                totalSheets: sheetsMembers.length,
+                totalManual: manualMembers.length,
                 members: filtered
             });
         } catch (error) {
