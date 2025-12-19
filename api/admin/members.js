@@ -79,18 +79,10 @@ async function getMembersFromSheetsCache() {
             pracResp.ok ? pracResp.text() : '',
         ]);
 
-        // Parse meditation sheet - row 0 is empty, row 1 has headers, dates at col 4+, data from row 2
+        // Parse meditation sheet - row 0 empty, row 1 headers, data from row 2
+        // Columns: 0=team, 1=name, 2=tier, 3=total, 4+=dates
         if (medCSV) {
             const lines = medCSV.split('\n').map(parseCSVLine);
-            const headerRow = lines[1] || []; // Header is in row 1 (row 0 is empty)
-
-            // Find date columns (start at col 4, col 3 is "總計")
-            const dateColumns = [];
-            for (let c = 4; c < headerRow.length; c++) {
-                if (headerRow[c] && headerRow[c].includes('/')) {
-                    dateColumns.push(c);
-                }
-            }
 
             // Data starts at row 2
             for (let i = 2; i < lines.length; i++) {
@@ -99,11 +91,8 @@ async function getMembersFromSheetsCache() {
                 const team = row[0], name = row[1];
                 if (!team || !name) continue;
 
-                // Sum all daily values for total
-                let total = 0;
-                for (const col of dateColumns) {
-                    total += parseFloat(row[col]) || 0;
-                }
+                // Column 3 has the pre-calculated total
+                const total = parseFloat(row[3]) || 0;
 
                 const key = `${team}:${name}`;
                 if (!membersMap.has(key)) {
