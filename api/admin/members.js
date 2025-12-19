@@ -79,29 +79,24 @@ async function getMembersFromSheetsCache() {
             pracResp.ok ? pracResp.text() : '',
         ]);
 
-        // Parse meditation sheet - columns: 0=team, 1=name, 2=tier OR total, 3=total (if tier exists)
-        // Try to detect structure: if col 2 is a number, use it as total; otherwise use col 3
+        // Parse meditation sheet - EXACT LOGIC FROM team.js
+        // Row 0 has dates header, data starts from row 1
+        // Sum all daily values (columns 3 onwards)
         if (medCSV) {
             const lines = medCSV.split('\n').map(parseCSVLine);
 
-            // Skip header rows - find first row with team data
-            let dataStart = 0;
-            for (let i = 0; i < Math.min(3, lines.length); i++) {
+            for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
-                if (row && row[0] && row[1] && !row[0].includes('總計')) {
-                    dataStart = i;
-                    break;
-                }
-            }
+                if (!row || row.length < 4) continue;
 
-            for (let i = dataStart; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 3) continue;
                 const team = row[0], name = row[1];
-                if (!team || !name || team.includes('總計') || team === '') continue;
+                if (!team || !name) continue;
 
-                // Try col 3 first, fall back to col 2, then try summing if both fail
-                let total = parseFloat(row[3]) || parseFloat(row[2]) || 0;
+                // Sum all daily values (columns 3 onwards) - same as team.js
+                let totalMinutes = 0;
+                for (let j = 3; j < row.length; j++) {
+                    totalMinutes += parseFloat(row[j]) || 0;
+                }
 
                 const key = `${team}:${name}`;
                 if (!membersMap.has(key)) {
@@ -109,57 +104,53 @@ async function getMembersFromSheetsCache() {
                         id: `sheets_${team}_${name}`,
                         name,
                         team,
-                        meditationTotal: total,
+                        meditationTotal: totalMinutes,
                         practiceTotal: 0,
                         source: 'sheets'
                     });
                 } else {
-                    membersMap.get(key).meditationTotal = total;
+                    membersMap.get(key).meditationTotal = totalMinutes;
                 }
             }
         }
 
-        // Parse practice sheet - row 0 has point values, row 1 has dates, data starts row 2
+
+        // Parse practice sheet - EXACT LOGIC FROM team.js
+        // Row 0 has the points per session for each date column
+        // Row 1 has dates, data starts from row 2
         if (pracCSV) {
             const lines = pracCSV.split('\n').map(parseCSVLine);
-            const pointsRow = lines[0] || []; // Point values per session
-            const dateRow = lines[1] || [];   // Dates in row 1
 
-            // Find date columns (start at col 3, filter for '/')
-            const dateColumns = [];
-            for (let c = 3; c < dateRow.length; c++) {
-                if (dateRow[c] && dateRow[c].includes('/')) {
-                    const points = parseFloat(pointsRow[c]) || 0;
-                    dateColumns.push({ col: c, points });
-                }
-            }
+            // Row 0 has points per session (slice from col 3)
+            const pointsPerSession = lines[0] ? lines[0].slice(3).map(p => parseFloat(p) || 0) : [];
 
-            // Data starts at row 2
+            // Data starts from row 2
             for (let i = 2; i < lines.length; i++) {
                 const row = lines[i];
-                if (!row || row.length < 3) continue;
+                if (!row || row.length < 4) continue;
+
                 const team = row[0], name = row[1];
                 if (!team || !name) continue;
 
-                // Sum points for each attended session
-                let total = 0;
-                for (const { col, points } of dateColumns) {
-                    const attended = parseFloat(row[col]) || 0;
+                // Calculate points: attendance (1) * points per session
+                let totalPoints = 0;
+                for (let j = 3; j < row.length && (j - 3) < pointsPerSession.length; j++) {
+                    const attended = parseFloat(row[j]) || 0;
                     if (attended > 0) {
-                        total += points > 0 ? points : 1; // Use point value if available
+                        totalPoints += pointsPerSession[j - 3] || 0;
                     }
                 }
 
                 const key = `${team}:${name}`;
                 if (membersMap.has(key)) {
-                    membersMap.get(key).practiceTotal = total;
+                    membersMap.get(key).practiceTotal = totalPoints;
                 } else {
                     membersMap.set(key, {
                         id: `sheets_${team}_${name}`,
                         name,
                         team,
                         meditationTotal: 0,
-                        practiceTotal: total,
+                        practiceTotal: totalPoints,
                         source: 'sheets'
                     });
                 }
