@@ -276,6 +276,89 @@
             color: #fbbf24;
         }
 
+        /* Team color badges */
+        .team-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .team-badge.晨絜家中隊,
+        .team-badge.team-1 {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .team-badge.明緯家中隊,
+        .team-badge.team-2 {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+        }
+
+        .team-badge.敬涵家中隊,
+        .team-badge.team-3 {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .team-badge.宗翰家中隊,
+        .team-badge.team-4 {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        /* Filter bar */
+        .filter-bar {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-md);
+            padding: var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: var(--radius-sm);
+        }
+
+        .filter-bar .form-input {
+            flex: 1;
+            min-width: 150px;
+            padding: var(--spacing-xs) var(--spacing-sm);
+        }
+
+        .filter-bar select {
+            min-width: 120px;
+        }
+
+        /* Compact value with type tag */
+        .value-with-type {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .type-tag {
+            font-size: 0.7rem;
+            padding: 1px 5px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .type-tag.meditation {
+            background: rgba(139, 92, 246, 0.3);
+            color: #c4b5fd;
+        }
+
+        .type-tag.practice {
+            background: rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+        }
+
+        .type-tag.class {
+            background: rgba(245, 158, 11, 0.3);
+            color: #fcd34d;
+        }
+
         /* Cache status */
         .cache-status {
             display: flex;
@@ -510,20 +593,38 @@
                     <h2 class="card-title">活動列表 Activities</h2>
                     <button class="action-btn primary" id="refreshActivities">🔄 刷新</button>
                 </div>
+
+                <!-- Filter Bar -->
+                <div class="filter-bar">
+                    <input type="text" id="searchInput" class="form-input" placeholder="🔍 搜尋成員...">
+                    <select id="filterType" class="form-input">
+                        <option value="">全部類型</option>
+                        <option value="meditation">🧘 禪定</option>
+                        <option value="practice">🙏 共修</option>
+                        <option value="class">📚 會館課</option>
+                    </select>
+                    <select id="filterTeam" class="form-input">
+                        <option value="">全部隊伍</option>
+                        <option value="晨絜家中隊">晨絜家中隊</option>
+                        <option value="明緯家中隊">明緯家中隊</option>
+                        <option value="敬涵家中隊">敬涵家中隊</option>
+                        <option value="宗翰家中隊">宗翰家中隊</option>
+                    </select>
+                </div>
+
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>類型</th>
                             <th>隊伍</th>
                             <th>成員</th>
                             <th>日期</th>
-                            <th>數值</th>
+                            <th>記錄</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="activitiesTable">
                         <tr>
-                            <td colspan="6" style="text-align: center;">載入中...</td>
+                            <td colspan="5" style="text-align: center;">載入中...</td>
                         </tr>
                     </tbody>
                 </table>

@@ -119,33 +119,66 @@ function showDashboard() {
 // ========================================
 // Activities
 // ========================================
+let allActivities = []; // Store for filtering
+
 async function loadActivities() {
     const tbody = $('activitiesTable');
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">載入中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">載入中...</td></tr>';
 
     try {
         const data = await apiCall('/activities');
-
-        if (data.activities.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">暫無活動記錄</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = data.activities.map(activity => `
-            <tr>
-                <td><span class="status-badge ${activity.type}">${getTypeLabel(activity.type)}</span></td>
-                <td>${activity.team}</td>
-                <td>${activity.member}</td>
-                <td>${activity.date}</td>
-                <td>${formatActivityValue(activity)}</td>
-                <td>
-                    <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
-                </td>
-            </tr>
-        `).join('');
+        allActivities = data.activities || [];
+        renderActivities();
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">載入失敗: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">載入失敗: ${error.message}</td></tr>`;
     }
+}
+
+function renderActivities() {
+    const tbody = $('activitiesTable');
+    const searchTerm = ($('searchInput')?.value || '').toLowerCase();
+    const filterType = $('filterType')?.value || '';
+    const filterTeam = $('filterTeam')?.value || '';
+
+    // Filter activities
+    const filtered = allActivities.filter(activity => {
+        const matchesSearch = !searchTerm || activity.member.toLowerCase().includes(searchTerm);
+        const matchesType = !filterType || activity.type === filterType;
+        const matchesTeam = !filterTeam || activity.team === filterTeam;
+        return matchesSearch && matchesType && matchesTeam;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">暫無活動記錄</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(activity => `
+        <tr>
+            <td><span class="team-badge ${activity.team}">${getTeamShortName(activity.team)}</span></td>
+            <td>${activity.member}</td>
+            <td>${activity.date}</td>
+            <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)}</td>
+            <td>
+                <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getTeamShortName(team) {
+    const shortNames = {
+        '晨絜家中隊': '晨絜',
+        '明緯家中隊': '明緯',
+        '敬涵家中隊': '敬涵',
+        '宗翰家中隊': '宗翰'
+    };
+    return shortNames[team] || team;
+}
+
+function getTypeEmoji(type) {
+    const emojis = { meditation: '🧘', practice: '🙏', class: '📚' };
+    return emojis[type] || '';
 }
 
 function getTypeLabel(type) {
@@ -230,7 +263,7 @@ async function loadMembers() {
             return `
             <tr>
                 <td>${member.name}</td>
-                <td>${member.team}</td>
+                <td><span class="team-badge ${member.team}">${getTeamShortName(member.team)}</span></td>
                 <td>${totalScore} 分</td>
                 <td>
                     <button class="action-btn danger" onclick="deleteMember('${member.id}')">🗑️</button>
@@ -403,4 +436,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('refreshActivities').addEventListener('click', loadActivities);
     $('refreshMembers').addEventListener('click', loadMembers);
     $('invalidateCache').addEventListener('click', invalidateCache);
+
+    // Activity filters
+    $('searchInput').addEventListener('input', renderActivities);
+    $('filterType').addEventListener('change', renderActivities);
+    $('filterTeam').addEventListener('change', renderActivities);
 });
