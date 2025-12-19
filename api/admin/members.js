@@ -84,6 +84,10 @@ async function getMembersFromSheetsCache() {
             const lines = medCSV.split('\n').map(parseCSVLine);
             const headerRow = lines[0] || [];
 
+            console.log('Meditation header row length:', headerRow.length);
+            console.log('Meditation header cols 0-5:', headerRow.slice(0, 6));
+            console.log('Meditation first data row:', lines[1]?.slice(0, 6));
+
             // Find date columns (start at col 3, filter for '/')
             const dateColumns = [];
             for (let c = 3; c < headerRow.length; c++) {
@@ -91,6 +95,7 @@ async function getMembersFromSheetsCache() {
                     dateColumns.push(c);
                 }
             }
+            console.log('Found date columns:', dateColumns.length);
 
             for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
