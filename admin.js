@@ -137,7 +137,7 @@ async function loadActivities() {
                 <td>${activity.team}</td>
                 <td>${activity.member}</td>
                 <td>${activity.date}</td>
-                <td>${activity.type === 'meditation' ? activity.value + ' 分鐘' : activity.value === 1 ? '✓' : activity.value}</td>
+                <td>${formatActivityValue(activity)}</td>
                 <td>
                     <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
                 </td>
@@ -155,6 +155,19 @@ function getTypeLabel(type) {
         class: '📚 會館課',
     };
     return labels[type] || type;
+}
+
+function formatActivityValue(activity) {
+    switch (activity.type) {
+        case 'meditation':
+            return activity.value + ' 分鐘';
+        case 'practice':
+            return activity.value + ' 分';
+        case 'class':
+            return '—'; // dash for class attendance
+        default:
+            return activity.value;
+    }
 }
 
 async function addActivity(event) {
