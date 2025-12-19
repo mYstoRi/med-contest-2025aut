@@ -325,21 +325,21 @@ async function getActivitiesFromSheetsCache() {
     };
 
     activities.sort((a, b) => {
-        // Get timestamps as milliseconds (0 if not available)
-        const tsA = a.timestamp ? parseTimestampToMs(a.timestamp) : 0;
-        const tsB = b.timestamp ? parseTimestampToMs(b.timestamp) : 0;
+        // Get time in milliseconds for each activity
+        // Prefer timestamp (has time precision), fall back to date
+        const getTimeMs = (activity) => {
+            if (activity.timestamp) {
+                const ts = parseTimestampToMs(activity.timestamp);
+                if (ts > 0) return ts;
+            }
+            return parseDateToMs(activity.date);
+        };
 
-        // If both have valid timestamps, compare them
-        if (tsA > 0 && tsB > 0) return tsB - tsA;
+        const timeA = getTimeMs(a);
+        const timeB = getTimeMs(b);
 
-        // If only one has timestamp, prioritize it
-        if (tsA > 0) return -1;
-        if (tsB > 0) return 1;
-
-        // Fall back to date comparison (also in milliseconds)
-        const dateA = parseDateToMs(a.date);
-        const dateB = parseDateToMs(b.date);
-        return dateB - dateA;
+        // Sort descending (newest first)
+        return timeB - timeA;
     });
 
     return activities;
