@@ -132,30 +132,38 @@ async function getActivitiesFromSheetsCache() {
             }
 
             // Parse practice CSV
+            // Row 0 = points per session, Row 1 = dates, Data starts from row 2
             // Columns: team(0), name(1), total(2), dates(3+)
             if (pracCSV) {
                 const lines = pracCSV.split('\n').map(parseCSVLine);
-                const headerRow = lines[0] || [];
+                const pointsRow = lines[0] || []; // Row 0 = points per session
+                const headerRow = lines[1] || []; // Row 1 = dates
                 const dateColumns = [];
                 for (let c = 3; c < headerRow.length; c++) {
                     if (headerRow[c] && headerRow[c].includes('/')) {
-                        dateColumns.push({ col: c, date: headerRow[c] });
+                        const points = parseFloat(pointsRow[c]) || 0;
+                        dateColumns.push({ col: c, date: headerRow[c], points });
                     }
                 }
                 practice = { members: [] };
 
-                for (let i = 1; i < lines.length; i++) {
+                // Data starts from row 2
+                for (let i = 2; i < lines.length; i++) {
                     const row = lines[i];
                     if (!row || row.length < 3) continue;
                     const team = row[0], name = row[1];
                     if (!team || !name) continue;
 
                     const daily = {};
-                    for (const { col, date } of dateColumns) {
-                        const value = parseFloat(row[col]) || 0;
-                        if (value > 0) daily[date] = value;
+                    for (const { col, date, points } of dateColumns) {
+                        const attended = parseFloat(row[col]) || 0;
+                        if (attended > 0) {
+                            daily[date] = points; // Store the points earned, not just attendance
+                        }
                     }
-                    practice.members.push({ team, name, daily });
+                    if (Object.keys(daily).length > 0) {
+                        practice.members.push({ team, name, daily });
+                    }
                 }
             }
 
