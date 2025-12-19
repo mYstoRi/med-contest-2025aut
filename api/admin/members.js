@@ -58,43 +58,73 @@ function parseCSVLine(line) {
     return values;
 }
 
+const PRACTICE_SHEET = '共修登記';
+
 /**
  * Get members from Google Sheets (direct fetch if cache empty)
+ * Also calculates meditation and practice totals
  */
 async function getMembersFromSheetsCache() {
     const membersMap = new Map(); // Use Map to dedupe by name+team
 
     try {
-        let meditation = await getCache(CACHE_KEYS.MEDITATION);
+        // Fetch both meditation and practice sheets
+        const [medResp, pracResp] = await Promise.all([
+            fetch(getSheetUrl(MEDITATION_SHEET)),
+            fetch(getSheetUrl(PRACTICE_SHEET)),
+        ]);
 
-        // If cache is empty, fetch directly from Google Sheets
-        if (!meditation?.members || meditation.members.length === 0) {
-            console.log('Cache empty, fetching members directly from Google Sheets');
+        const [medCSV, pracCSV] = await Promise.all([
+            medResp.ok ? medResp.text() : '',
+            pracResp.ok ? pracResp.text() : '',
+        ]);
 
-            const resp = await fetch(getSheetUrl(MEDITATION_SHEET));
-            if (resp.ok) {
-                const csv = await resp.text();
-                const lines = csv.split('\n').map(parseCSVLine);
+        // Parse meditation sheet - get members and totals
+        if (medCSV) {
+            const lines = medCSV.split('\n').map(parseCSVLine);
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 3) continue;
+                const team = row[0], name = row[1];
+                const total = parseFloat(row[2]) || 0; // Column 2 is total
+                if (!team || !name) continue;
 
-                meditation = { members: [] };
-                for (let i = 1; i < lines.length; i++) {
-                    const row = lines[i];
-                    if (!row || row.length < 2) continue;
-                    const team = row[0], name = row[1];
-                    if (!team || !name) continue;
-                    meditation.members.push({ team, name });
+                const key = `${team}:${name}`;
+                if (!membersMap.has(key)) {
+                    membersMap.set(key, {
+                        id: `sheets_${team}_${name}`,
+                        name,
+                        team,
+                        meditationTotal: total,
+                        practiceTotal: 0,
+                        source: 'sheets'
+                    });
+                } else {
+                    membersMap.get(key).meditationTotal = total;
                 }
             }
         }
 
-        if (meditation?.members) {
-            for (const member of meditation.members) {
-                const key = `${member.team}:${member.name}`;
-                if (!membersMap.has(key)) {
+        // Parse practice sheet - get practice totals
+        if (pracCSV) {
+            const lines = pracCSV.split('\n').map(parseCSVLine);
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length < 3) continue;
+                const team = row[0], name = row[1];
+                const total = parseFloat(row[2]) || 0; // Column 2 is total
+                if (!team || !name) continue;
+
+                const key = `${team}:${name}`;
+                if (membersMap.has(key)) {
+                    membersMap.get(key).practiceTotal = total;
+                } else {
                     membersMap.set(key, {
-                        id: `sheets_${member.team}_${member.name}`,
-                        name: member.name,
-                        team: member.team,
+                        id: `sheets_${team}_${name}`,
+                        name,
+                        team,
+                        meditationTotal: 0,
+                        practiceTotal: total,
                         source: 'sheets'
                     });
                 }
