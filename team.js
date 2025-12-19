@@ -971,25 +971,34 @@ function getScoreBreakdownFromAPI(apiData) {
     }
 
     // Build daily cumulative data for chart
+    // Chart expects: { date, meditation, practice, class } per day
     const allDates = new Set();
-    const teamDailyScores = {};
+    const teamDailyByCategory = {}; // { team: { date: { meditation, practice, class } } }
 
-    // Collect all dates and daily scores
+    // Collect all dates and daily scores by category
     for (const sheet of ['meditation', 'practice', 'class']) {
         const members = apiData[sheet]?.members || [];
         for (const m of members) {
             if (m.daily) {
-                if (!teamDailyScores[m.team]) teamDailyScores[m.team] = {};
+                if (!teamDailyByCategory[m.team]) teamDailyByCategory[m.team] = {};
                 for (const [date, value] of Object.entries(m.daily)) {
                     allDates.add(date);
-                    if (!teamDailyScores[m.team][date]) teamDailyScores[m.team][date] = 0;
-                    teamDailyScores[m.team][date] += sheet === 'class' ? value * 50 : value;
+                    if (!teamDailyByCategory[m.team][date]) {
+                        teamDailyByCategory[m.team][date] = { meditation: 0, practice: 0, class: 0 };
+                    }
+                    if (sheet === 'class') {
+                        teamDailyByCategory[m.team][date].class += value * 50;
+                    } else if (sheet === 'meditation') {
+                        teamDailyByCategory[m.team][date].meditation += value;
+                    } else {
+                        teamDailyByCategory[m.team][date].practice += value;
+                    }
                 }
             }
         }
     }
 
-    // Sort dates and build cumulative
+    // Sort dates
     const sortedDates = Array.from(allDates).sort((a, b) => {
         const [am, ad] = a.split('/').map(Number);
         const [bm, bd] = b.split('/').map(Number);
@@ -997,13 +1006,18 @@ function getScoreBreakdownFromAPI(apiData) {
         return ad - bd;
     });
 
-    for (const team of Object.keys(teamDailyScores)) {
-        let cumulative = 0;
+    // Build cumulative array with proper format for chart
+    for (const team of Object.keys(teamDailyByCategory)) {
         breakdown.daily[team] = {
             dates: sortedDates,
             cumulative: sortedDates.map(date => {
-                cumulative += teamDailyScores[team][date] || 0;
-                return cumulative;
+                const day = teamDailyByCategory[team][date] || { meditation: 0, practice: 0, class: 0 };
+                return {
+                    date,
+                    meditation: day.meditation,
+                    practice: day.practice,
+                    class: day.class
+                };
             })
         };
     }
