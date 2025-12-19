@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登記禪定 | Log Meditation</title>
+    <meta name="description" content="記錄你的禪定 - Log your meditation session">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./register.css">
+</head>
+
+<body>
+    <!-- Settings Button & Panel -->
+    <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+        ⚙️
+    </button>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-title">⚙️ 設定 Settings</div>
+        <div class="settings-item">
+            <span class="settings-label">主題 Theme</span>
+            <div class="theme-toggle" id="themeToggle" role="switch" aria-label="Toggle theme"></div>
+        </div>
+    </div>
+
+    <div class="bg-effects">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-glow"></div>
+            <a href="./index.html" class="back-link">← 返回 Back</a>
+            <h1 class="title">
+                <span class="title-icon">🧘</span>
+                登記禪定
+                <span class="title-icon">🧘</span>
+            </h1>
+            <p class="subtitle">Log Your Meditation Session</p>
+        </header>
+
+        <!-- Registration Form -->
+        <section class="form-section">
+            <form id="meditationForm" class="meditation-form">
+
+                <!-- Name -->
+                <div class="form-group">
+                    <label for="name" class="form-label">
+                        <span class="label-icon">👤</span>
+                        你的名字？ Your Name
+                    </label>
+                    <select id="name" name="name" required class="form-select">
+                        <option value="">請選擇 Select...</option>
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div class="form-group">
+                    <label for="date" class="form-label">
+                        <span class="label-icon">📅</span>
+                        這是哪一天的記錄呢？ Date of Meditation
+                    </label>
+                    <input type="date" id="date" name="date" required class="form-input">
+                </div>
+
+                <!-- Duration -->
+                <div class="form-group">
+                    <label for="duration" class="form-label">
+                        <span class="label-icon">⏱️</span>
+                        本次「禪定」持續了多久？(分鐘) Duration (minutes)
+                    </label>
+                    <input type="number" id="duration" name="duration" min="1" max="480" required placeholder="例如: 30"
+                        class="form-input">
+                    <div class="form-hint">請輸入 1-480 之間的數字 Enter a number between 1-480</div>
+                </div>
+
+                <!-- Time of Day -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="label-icon">🌅</span>
+                        什麼時候禪定的呢？ Time of Day
+                    </label>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="timeOfDay" value="早上" required>
+                            <span class="radio-label">🌅 早上 Morning</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="timeOfDay" value="中午">
+                            <span class="radio-label">☀️ 中午 Noon</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="timeOfDay" value="下午">
+                            <span class="radio-label">🌤️ 下午 Afternoon</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="timeOfDay" value="晚上">
+                            <span class="radio-label">🌙 晚上 Evening</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="timeOfDay" value="深夜">
+                            <span class="radio-label">🌌 深夜 Late Night</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- After Thoughts -->
+                <div class="form-group">
+                    <label for="thoughts" class="form-label">
+                        <span class="label-icon">💭</span>
+                        心得 Reflections
+                    </label>
+                    <textarea id="thoughts" name="thoughts" rows="4"
+                        placeholder="分享你的禪定體驗... Share your meditation experience..." class="form-textarea"></textarea>
+                    <div class="form-hint">選填 Optional</div>
+                </div>
+
+                <!-- Willingness to Share -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="label-icon">📢</span>
+                        好的心得是否願意讓小天使在群組中分享你的心得呢！
+                        <br><span class="label-subtitle">Would you like us to share your reflections in the
+                            group?</span>
+                    </label>
+                    <div class="radio-group horizontal">
+                        <label class="radio-option">
+                            <input type="radio" name="shareConsent" value="願意" required>
+                            <span class="radio-label">✅ 願意 Yes</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="shareConsent" value="不願意">
+                            <span class="radio-label">❌ 不願意 No</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="btn-icon">🙏</span>
+                        送出記錄 Submit
+                    </button>
+                </div>
+
+                <!-- Status Messages -->
+                <div id="formStatus" class="form-status"></div>
+            </form>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <a href="./index.html" class="footer-link">← 返回積分榜 Back to Dashboard</a>
+        </footer>
+    </div>
+
+    <script type="module" src="./register.js"></script>
+</body>
+
+</html>
