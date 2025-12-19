@@ -304,19 +304,34 @@ async function getActivitiesFromSheetsCache() {
     };
 
     // Parse timestamp helper for form responses - returns milliseconds
+    // Format: "2025/12/10 下午 5:31:28" (date, AM/PM indicator, time - 3 parts)
     const parseTimestampToMs = (ts) => {
         if (!ts) return 0;
         try {
             const parts = ts.split(' ');
             if (parts.length < 2) return 0;
+
             const datePart = parts[0];
-            let timePart = parts[1];
-            const isPM = timePart.includes('下午');
-            timePart = timePart.replace('下午', '').replace('上午', '');
+            // Handle both "下午 5:31:28" (3 parts) and "下午5:31:28" (2 parts) formats
+            let isPM = false;
+            let timePart = '';
+
+            if (parts.length >= 3) {
+                // 3-part format: "2025/12/10 下午 5:31:28"
+                isPM = parts[1].includes('下午');
+                timePart = parts[2];
+            } else {
+                // 2-part format: "2025/12/10 下午5:31:28"
+                timePart = parts[1];
+                isPM = timePart.includes('下午');
+                timePart = timePart.replace('下午', '').replace('上午', '');
+            }
+
             const [hours, minutes, seconds] = timePart.split(':').map(Number);
-            let hour24 = hours;
+            let hour24 = hours || 0;
             if (isPM && hours < 12) hour24 = hours + 12;
             if (!isPM && hours === 12) hour24 = 0;
+
             const [year, month, day] = datePart.split('/').map(Number);
             return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0).getTime();
         } catch {
