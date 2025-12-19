@@ -61,8 +61,8 @@ function parseCSVLine(line) {
 const PRACTICE_SHEET = '共修登記';
 
 /**
- * Get members from Google Sheets (direct fetch if cache empty)
- * Also calculates meditation and practice totals
+ * Get members from Google Sheets (direct fetch)
+ * Calculates meditation and practice totals by summing daily values
  */
 async function getMembersFromSheetsCache() {
     const membersMap = new Map(); // Use Map to dedupe by name+team
@@ -79,15 +79,30 @@ async function getMembersFromSheetsCache() {
             pracResp.ok ? pracResp.text() : '',
         ]);
 
-        // Parse meditation sheet - get members and totals
+        // Parse meditation sheet - calculate totals from daily values
         if (medCSV) {
             const lines = medCSV.split('\n').map(parseCSVLine);
+            const headerRow = lines[0] || [];
+
+            // Find date columns (start at col 3, filter for '/')
+            const dateColumns = [];
+            for (let c = 3; c < headerRow.length; c++) {
+                if (headerRow[c] && headerRow[c].includes('/')) {
+                    dateColumns.push(c);
+                }
+            }
+
             for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
                 if (!row || row.length < 3) continue;
                 const team = row[0], name = row[1];
-                const total = parseFloat(row[2]) || 0; // Column 2 is total
                 if (!team || !name) continue;
+
+                // Sum all daily values for total
+                let total = 0;
+                for (const col of dateColumns) {
+                    total += parseFloat(row[col]) || 0;
+                }
 
                 const key = `${team}:${name}`;
                 if (!membersMap.has(key)) {
@@ -105,15 +120,30 @@ async function getMembersFromSheetsCache() {
             }
         }
 
-        // Parse practice sheet - get practice totals
+        // Parse practice sheet - calculate totals from daily values
         if (pracCSV) {
             const lines = pracCSV.split('\n').map(parseCSVLine);
+            const headerRow = lines[0] || [];
+
+            // Find date columns (start at col 3, filter for '/')
+            const dateColumns = [];
+            for (let c = 3; c < headerRow.length; c++) {
+                if (headerRow[c] && headerRow[c].includes('/')) {
+                    dateColumns.push(c);
+                }
+            }
+
             for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
                 if (!row || row.length < 3) continue;
                 const team = row[0], name = row[1];
-                const total = parseFloat(row[2]) || 0; // Column 2 is total
                 if (!team || !name) continue;
+
+                // Sum all daily values for total
+                let total = 0;
+                for (const col of dateColumns) {
+                    total += parseFloat(row[col]) || 0;
+                }
 
                 const key = `${team}:${name}`;
                 if (membersMap.has(key)) {

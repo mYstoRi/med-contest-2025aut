@@ -215,29 +215,30 @@ window.deleteActivity = deleteActivity;
 // ========================================
 async function loadMembers() {
     const tbody = $('membersTable');
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">載入中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">載入中...</td></tr>';
 
     try {
         const data = await apiCall('/members');
 
         if (data.members.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">暫無成員</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">暫無成員</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.members.map(member => `
+        tbody.innerHTML = data.members.map(member => {
+            const totalScore = (member.meditationTotal || 0) + (member.practiceTotal || 0);
+            return `
             <tr>
                 <td>${member.name}</td>
                 <td>${member.team}</td>
-                <td>${member.meditationTotal || 0} 分</td>
-                <td>${member.practiceTotal || 0} 次</td>
+                <td>${totalScore} 分</td>
                 <td>
                     <button class="action-btn danger" onclick="deleteMember('${member.id}')">🗑️</button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">載入失敗: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">載入失敗: ${error.message}</td></tr>`;
     }
 }
 
