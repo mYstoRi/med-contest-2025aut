@@ -451,10 +451,54 @@ export default async function handler(req, res) {
         }
     }
 
-    // POST /api/admin/activities - Add new activity
+    // POST /api/admin/activities - Add new activity or bulk activities
     if (req.method === 'POST') {
         try {
-            const { type, team, member, date, value, notes } = req.body || {};
+            const body = req.body || {};
+
+            // Check if bulk submission (activities array)
+            if (body.activities && Array.isArray(body.activities)) {
+                const newActivities = [];
+
+                for (const item of body.activities) {
+                    const { type, team, member, date, value } = item;
+
+                    // Validate each activity
+                    if (!type || !ACTIVITY_TYPES.includes(type)) continue;
+                    if (!team || !member || !date) continue;
+
+                    newActivities.push({
+                        id: generateId(),
+                        type,
+                        team,
+                        member,
+                        date,
+                        value: parseFloat(value) || 1,
+                        createdAt: new Date().toISOString(),
+                        source: 'admin'
+                    });
+                }
+
+                if (newActivities.length === 0) {
+                    return res.status(400).json({ error: 'No valid activities provided' });
+                }
+
+                const activities = await getActivities();
+                activities.push(...newActivities);
+                await saveActivities(activities);
+
+                // Invalidate cache
+                await deleteCache(CACHE_KEYS.META);
+
+                return res.status(201).json({
+                    success: true,
+                    count: newActivities.length,
+                    message: `${newActivities.length} activities added successfully`
+                });
+            }
+
+            // Single activity submission (legacy support)
+            const { type, team, member, date, value, notes } = body;
 
             // Validate required fields
             if (!type || !ACTIVITY_TYPES.includes(type)) {

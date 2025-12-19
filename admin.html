@@ -395,6 +395,113 @@
             background: #ef4444;
         }
 
+        /* Bulk Activity Form */
+        .bulk-activity-form {
+            padding: var(--spacing-md);
+        }
+
+        .form-row {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .participants-section {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .section-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .team-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .team-group {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-sm);
+        }
+
+        .team-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            margin-bottom: var(--spacing-xs);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .team-group-header span {
+            font-weight: 600;
+        }
+
+        .select-all-btn {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .member-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs);
+        }
+
+        .member-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .member-checkbox:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .member-checkbox input {
+            cursor: pointer;
+        }
+
+        .member-checkbox label {
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .form-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        #selectedCount {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
         /* Hidden */
         .hidden {
             display: none !important;
@@ -568,36 +675,12 @@
         <!-- Tabs -->
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="activities">📊 活動記錄</button>
+            <button class="admin-tab" data-tab="addRecords">➕ 新增記錄</button>
             <button class="admin-tab" data-tab="members">👥 成員管理</button>
-            <button class="admin-tab" data-tab="cache">⚡ 快取管理</button>
         </div>
 
         <!-- Activities Panel -->
         <div id="activitiesPanel" class="tab-panel active">
-            <div class="admin-card">
-                <div class="card-header">
-                    <h2 class="card-title">新增活動 Add Activity</h2>
-                </div>
-                <form id="addActivityForm" class="add-form">
-                    <select id="activityType" class="form-input" required>
-                        <option value="">類型 Type</option>
-                        <option value="meditation">🧘 禪定</option>
-                        <option value="practice">🙏 共修</option>
-                        <option value="class">📚 會館課</option>
-                    </select>
-                    <select id="activityTeam" class="form-input" required>
-                        <option value="">隊伍 Team</option>
-                        <option value="晨絜家中隊">晨絜家中隊</option>
-                        <option value="明緯家中隊">明緯家中隊</option>
-                        <option value="敬涵家中隊">敬涵家中隊</option>
-                        <option value="宗翰家中隊">宗翰家中隊</option>
-                    </select>
-                    <input type="text" id="activityMember" class="form-input" placeholder="成員名稱 Member" required>
-                    <input type="text" id="activityDate" class="form-input" placeholder="日期 Date (12/19)" required>
-                    <input type="number" id="activityValue" class="form-input" placeholder="數值 Value" value="1">
-                    <button type="submit" class="action-btn primary">➕ 新增</button>
-                </form>
-            </div>
 
             <div class="admin-card">
                 <div class="card-header">
@@ -646,23 +729,6 @@
         <div id="membersPanel" class="tab-panel">
             <div class="admin-card">
                 <div class="card-header">
-                    <h2 class="card-title">新增成員 Add Member</h2>
-                </div>
-                <form id="addMemberForm" class="add-form">
-                    <input type="text" id="memberName" class="form-input" placeholder="成員名稱 Name" required>
-                    <select id="memberTeam" class="form-input" required>
-                        <option value="">隊伍 Team</option>
-                        <option value="晨絜家中隊">晨絜家中隊</option>
-                        <option value="明緯家中隊">明緯家中隊</option>
-                        <option value="敬涵家中隊">敬涵家中隊</option>
-                        <option value="宗翰家中隊">宗翰家中隊</option>
-                    </select>
-                    <button type="submit" class="action-btn primary">➕ 新增</button>
-                </form>
-            </div>
-
-            <div class="admin-card">
-                <div class="card-header">
                     <h2 class="card-title">成員列表 Members</h2>
                     <button class="action-btn primary" id="refreshMembers">🔄 刷新</button>
                 </div>
@@ -684,22 +750,62 @@
             </div>
         </div>
 
-        <!-- Cache Panel -->
-        <div id="cachePanel" class="tab-panel">
+        <!-- Add Records Panel -->
+        <div id="addRecordsPanel" class="tab-panel">
             <div class="admin-card">
                 <div class="card-header">
-                    <h2 class="card-title">⚡ 快取狀態 Cache Status</h2>
+                    <h2 class="card-title">🙏 新增活動 Add Activities</h2>
                 </div>
-                <div class="cache-status" id="cacheStatus">
-                    <div class="cache-indicator"></div>
-                    <span>檢查中...</span>
+                <div class="bulk-activity-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">類型 Type</label>
+                            <select id="bulkType" class="form-input">
+                                <option value="practice">🙏 共修</option>
+                                <option value="class">📚 會館課</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">日期 Date</label>
+                            <input type="date" id="bulkDate" class="form-input">
+                        </div>
+                        <div class="form-group" id="pointsGroup">
+                            <label class="form-label">積分 Points</label>
+                            <input type="number" id="bulkPoints" class="form-input" value="50">
+                        </div>
+                    </div>
+
+                    <div class="participants-section">
+                        <h3 class="section-subtitle">選擇參與者 Select Participants</h3>
+                        <div id="teamCheckboxes" class="team-checkboxes">
+                            <!-- Will be populated by JS -->
+                            <p style="color: var(--text-secondary);">載入中...</p>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <span id="selectedCount">Selected: 0</span>
+                        <button type="button" id="submitActivities" class="action-btn primary">➕ Submit
+                            Activities</button>
+                    </div>
                 </div>
-                <div style="margin-top: var(--spacing-md);">
-                    <button class="action-btn primary" id="invalidateCache">🔄 強制刷新快取</button>
-                    <p style="margin-top: var(--spacing-sm); color: var(--text-secondary); font-size: 0.9rem;">
-                        這將清除所有快取資料，下次訪問時會從 Google Sheets 重新獲取。
-                    </p>
+            </div>
+
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">👤 新增成員 Add Member</h2>
                 </div>
+                <form id="addMemberForm" class="add-form">
+                    <input type="text" id="memberName" class="form-input" placeholder="成員名稱 Name" required>
+                    <select id="memberTeam" class="form-input" required>
+                        <option value="">隊伍 Team</option>
+                        <option value="晨絜家中隊">晨絜家中隊</option>
+                        <option value="明緯家中隊">明緯家中隊</option>
+                        <option value="敬涵家中隊">敬涵家中隊</option>
+                        <option value="宗翰家中隊">宗翰家中隊</option>
+                    </select>
+                    <button type="submit" class="action-btn primary">➕ 新增</button>
+                </form>
             </div>
         </div>
     </div>

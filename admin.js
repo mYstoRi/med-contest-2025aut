@@ -113,7 +113,6 @@ function showDashboard() {
 
     // Load initial data
     loadActivities();
-    loadCacheStatus();
 }
 
 // ========================================
@@ -371,13 +370,142 @@ async function loadCacheStatus() {
     }
 }
 
-async function invalidateCache() {
+// ========================================
+// Bulk Activity (Add Records Tab)
+// ========================================
+let membersByTeam = {}; // Cache for member data
+
+async function loadAddRecordsTab() {
+    const container = $('teamCheckboxes');
+
     try {
-        await apiCall('/invalidate', { method: 'POST' });
-        showToast('快取已清除');
-        loadCacheStatus();
+        // Load members grouped by team
+        const data = await apiCall('/members');
+
+        // Group members by team
+        membersByTeam = {};
+        const teams = ['晨絜家中隊', '明緯家中隊', '敬涵家中隊', '宗翰家中隊'];
+        teams.forEach(team => membersByTeam[team] = []);
+
+        data.members.forEach(member => {
+            if (membersByTeam[member.team]) {
+                membersByTeam[member.team].push(member.name);
+            }
+        });
+
+        // Render team checkboxes
+        container.innerHTML = teams.map(team => {
+            const members = membersByTeam[team] || [];
+            const shortName = getTeamShortName(team);
+            return `
+                <div class="team-group">
+                    <div class="team-group-header">
+                        <span class="team-badge ${team}">${shortName}</span>
+                        <button type="button" class="select-all-btn" onclick="toggleTeam('${team}')">全選</button>
+                    </div>
+                    <div class="member-checkboxes">
+                        ${members.map(name => `
+                            <div class="member-checkbox">
+                                <input type="checkbox" id="member_${name}" data-team="${team}" data-name="${name}">
+                                <label for="member_${name}">${name}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add change listeners to update count
+        container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', updateSelectedCount);
+        });
+
     } catch (error) {
-        showToast(`清除失敗: ${error.message}`, 'error');
+        container.innerHTML = `<p style="color: #ef4444;">載入失敗: ${error.message}</p>`;
+    }
+}
+
+function toggleTeam(teamName) {
+    const checkboxes = document.querySelectorAll(`input[data-team="${teamName}"]`);
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCount();
+}
+
+// Make toggleTeam available globally
+window.toggleTeam = toggleTeam;
+
+function updatePointsVisibility() {
+    const type = $('bulkType').value;
+    const pointsGroup = $('pointsGroup');
+    if (type === 'class') {
+        pointsGroup.style.display = 'none';
+        $('bulkPoints').value = 50; // Fixed 50 for class
+    } else {
+        pointsGroup.style.display = 'block';
+    }
+}
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('#teamCheckboxes input[type="checkbox"]:checked');
+    $('selectedCount').textContent = `Selected: ${checked.length}`;
+}
+
+async function submitActivities() {
+    const type = $('bulkType').value;
+    const dateInput = $('bulkDate').value;
+    const points = parseInt($('bulkPoints').value) || 50;
+
+    // Get selected members
+    const checkedBoxes = document.querySelectorAll('#teamCheckboxes input[type="checkbox"]:checked');
+    const selectedMembers = Array.from(checkedBoxes).map(cb => ({
+        name: cb.dataset.name,
+        team: cb.dataset.team
+    }));
+
+    if (selectedMembers.length === 0) {
+        showToast('請選擇至少一位參與者', 'error');
+        return;
+    }
+
+    if (!dateInput) {
+        showToast('請選擇日期', 'error');
+        return;
+    }
+
+    // Convert YYYY-MM-DD to YYYY/MM/DD
+    const date = dateInput.replace(/-/g, '/');
+
+    // Create activities array
+    const activities = selectedMembers.map(member => ({
+        type,
+        team: member.team,
+        member: member.name,
+        date,
+        value: type === 'class' ? 1 : points
+    }));
+
+    try {
+        $('submitActivities').disabled = true;
+        $('submitActivities').textContent = '提交中...';
+
+        // Submit all activities
+        await apiCall('/activities', {
+            method: 'POST',
+            body: JSON.stringify({ activities })
+        });
+
+        showToast(`已新增 ${activities.length} 筆活動記錄`);
+
+        // Clear selections
+        document.querySelectorAll('#teamCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+
+    } catch (error) {
+        showToast(`新增失敗: ${error.message}`, 'error');
+    } finally {
+        $('submitActivities').disabled = false;
+        $('submitActivities').textContent = '➕ Submit Activities';
     }
 }
 
@@ -400,7 +528,7 @@ function switchTab(tabName) {
     // Load data for the tab
     if (tabName === 'activities') loadActivities();
     if (tabName === 'members') loadMembers();
-    if (tabName === 'cache') loadCacheStatus();
+    if (tabName === 'addRecords') loadAddRecordsTab();
 }
 
 // ========================================
@@ -447,16 +575,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Forms
-    $('addActivityForm').addEventListener('submit', addActivity);
     $('addMemberForm').addEventListener('submit', addMember);
 
     // Refresh buttons
     $('refreshActivities').addEventListener('click', loadActivities);
     $('refreshMembers').addEventListener('click', loadMembers);
-    $('invalidateCache').addEventListener('click', invalidateCache);
 
     // Activity filters
     $('searchInput').addEventListener('input', renderActivities);
     $('filterType').addEventListener('change', renderActivities);
     $('filterTeam').addEventListener('change', renderActivities);
+
+    // Bulk activity form
+    $('bulkType').addEventListener('change', updatePointsVisibility);
+    $('submitActivities').addEventListener('click', submitActivities);
+
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    $('bulkDate').value = today;
 });
