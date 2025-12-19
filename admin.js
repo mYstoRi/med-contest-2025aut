@@ -157,7 +157,7 @@ function renderActivities() {
         <tr>
             <td><span class="team-badge ${activity.team}">${getTeamShortName(activity.team)}</span></td>
             <td>${activity.member}</td>
-            <td>${activity.date}</td>
+            <td>${formatActivityDate(activity.date)}</td>
             <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)}</td>
             <td>
                 <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
@@ -201,6 +201,24 @@ function formatActivityValue(activity) {
         default:
             return activity.value;
     }
+}
+
+// Format date to always include year (YYYY/MM/DD)
+function formatActivityDate(dateStr) {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('/');
+
+    if (parts.length === 3) {
+        // Already has year: YYYY/MM/DD
+        return dateStr;
+    } else if (parts.length === 2) {
+        // MM/DD format - add year
+        const month = parseInt(parts[0], 10);
+        const day = parts[1];
+        const year = month < 6 ? 2026 : 2025;
+        return `${year}/${month}/${day}`;
+    }
+    return dateStr;
 }
 
 async function addActivity(event) {
