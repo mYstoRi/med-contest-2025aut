@@ -279,14 +279,27 @@ async function getActivitiesFromSheetsCache() {
     }
 
     // Sort activities by date (newest first)
-    // Parse date helper for MM/DD format - returns milliseconds for comparison
+    // Parse date helper - handles both YYYY/MM/DD and MM/DD formats
     const parseDateToMs = (dateStr) => {
         if (!dateStr) return 0;
         const parts = dateStr.split('/');
-        const month = parseInt(parts[0], 10) || 1;
-        const day = parseInt(parts[1], 10) || 1;
-        // Assume year based on month (Dec-May = spans new year)
-        const year = month < 6 ? 2026 : 2025;
+
+        let year, month, day;
+        if (parts.length === 3) {
+            // YYYY/MM/DD format (e.g., "2025/12/19")
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10);
+            day = parseInt(parts[2], 10);
+        } else if (parts.length === 2) {
+            // MM/DD format (e.g., "12/19")
+            month = parseInt(parts[0], 10) || 1;
+            day = parseInt(parts[1], 10) || 1;
+            // Assume year based on month (Dec-May = spans new year)
+            year = month < 6 ? 2026 : 2025;
+        } else {
+            return 0;
+        }
+
         return new Date(year, month - 1, day).getTime();
     };
 
