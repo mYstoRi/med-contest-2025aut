@@ -510,6 +510,89 @@ async function submitActivities() {
 }
 
 // ========================================
+// Sync (Data Sync Tab)
+// ========================================
+async function loadSyncTab() {
+    // Get last sync time from API
+    try {
+        const response = await fetch('/api/data');
+        const data = await response.json();
+
+        const lastSyncEl = $('lastSyncTime');
+        if (data.syncedAt) {
+            const syncDate = new Date(data.syncedAt);
+            lastSyncEl.textContent = syncDate.toLocaleString('zh-TW');
+        } else {
+            lastSyncEl.textContent = '從未同步 Never synced';
+        }
+
+        // Also show if data is empty
+        if (data.isEmpty) {
+            $('syncResult').innerHTML = `
+                <div style="padding: var(--spacing-md); background: rgba(245, 158, 11, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <p style="color: #f59e0b;">⚠️ 資料庫是空的。請執行同步以匯入資料。</p>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Database is empty. Run a sync to import data.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to load sync status:', error);
+        $('lastSyncTime').textContent = '無法獲取 Could not fetch';
+    }
+}
+
+async function performSync(mode) {
+    const statusEl = $('syncStatus');
+    const resultEl = $('syncResult');
+    const mergeBtn = $('syncMergeBtn');
+    const overwriteBtn = $('syncOverwriteBtn');
+
+    // Disable buttons and show loading
+    mergeBtn.disabled = true;
+    overwriteBtn.disabled = true;
+    statusEl.style.display = 'block';
+    resultEl.innerHTML = '';
+
+    try {
+        const response = await apiCall('/sync', {
+            method: 'POST',
+            body: JSON.stringify({ mode }),
+        });
+
+        // Show success
+        resultEl.innerHTML = `
+            <div style="padding: var(--spacing-md); background: rgba(16, 185, 129, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.3);">
+                <p style="color: #10b981; font-weight: 600;">✅ 同步成功！ Sync successful!</p>
+                <p style="color: var(--text-secondary); margin-top: 8px;">
+                    模式 Mode: <strong>${mode === 'overwrite' ? '覆蓋 Overwrite' : '合併 Merge'}</strong><br>
+                    禪定成員 Meditation members: ${response.stats?.meditation || 0}<br>
+                    共修成員 Practice members: ${response.stats?.practice || 0}<br>
+                    會館課成員 Class members: ${response.stats?.class || 0}
+                </p>
+            </div>
+        `;
+
+        // Update last sync time
+        $('lastSyncTime').textContent = new Date().toLocaleString('zh-TW');
+
+        showToast('同步成功 Sync completed!');
+
+    } catch (error) {
+        resultEl.innerHTML = `
+            <div style="padding: var(--spacing-md); background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.3);">
+                <p style="color: #ef4444; font-weight: 600;">❌ 同步失敗 Sync failed</p>
+                <p style="color: var(--text-secondary); margin-top: 8px;">${error.message}</p>
+            </div>
+        `;
+        showToast(`同步失敗: ${error.message}`, 'error');
+    } finally {
+        statusEl.style.display = 'none';
+        mergeBtn.disabled = false;
+        overwriteBtn.disabled = false;
+    }
+}
+
+// ========================================
 // Tab Navigation
 // ========================================
 function switchTab(tabName) {
@@ -529,6 +612,7 @@ function switchTab(tabName) {
     if (tabName === 'activities') loadActivities();
     if (tabName === 'members') loadMembers();
     if (tabName === 'addRecords') loadAddRecordsTab();
+    if (tabName === 'sync') loadSyncTab();
 }
 
 // ========================================
@@ -589,6 +673,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Bulk activity form
     $('bulkType').addEventListener('change', updatePointsVisibility);
     $('submitActivities').addEventListener('click', submitActivities);
+
+    // Sync buttons
+    $('syncMergeBtn')?.addEventListener('click', () => performSync('merge'));
+    $('syncOverwriteBtn')?.addEventListener('click', () => {
+        if (confirm('⚠️ 警告！這會覆蓋資料庫中的所有資料！\n\nWARNING: This will OVERWRITE all database data!\n\n確定要繼續嗎？ Are you sure?')) {
+            performSync('overwrite');
+        }
+    });
 
     // Set default date to today
     const today = new Date().toISOString().split('T')[0];

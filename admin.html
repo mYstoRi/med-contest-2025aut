@@ -677,6 +677,7 @@
             <button class="admin-tab active" data-tab="activities">📊 活動記錄</button>
             <button class="admin-tab" data-tab="addRecords">➕ 新增記錄</button>
             <button class="admin-tab" data-tab="members">👥 成員管理</button>
+            <button class="admin-tab" data-tab="sync">🔄 資料同步</button>
         </div>
 
         <!-- Activities Panel -->
@@ -806,6 +807,57 @@
                     </select>
                     <button type="submit" class="action-btn primary">➕ 新增</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Sync Panel -->
+        <div id="syncPanel" class="tab-panel">
+            <div class="admin-card">
+                <div class="card-header">
+                    <h2 class="card-title">🔄 同步 Google Sheets Data Sync</h2>
+                </div>
+
+                <div class="sync-info" style="margin-bottom: var(--spacing-lg);">
+                    <p style="color: var(--text-secondary);">
+                        📊 最後同步時間 Last sync: <strong id="lastSyncTime">--</strong>
+                    </p>
+                </div>
+
+                <div class="sync-options" style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                    <!-- Merge Option -->
+                    <div class="admin-card" style="flex: 1; min-width: 280px;">
+                        <h3 style="margin-bottom: var(--spacing-sm);">📥 合併模式 Merge</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-md);">
+                            從 Google Sheets 匯入資料，保留資料庫中的現有記錄。新資料會被加入，相同成員的資料會被更新。
+                            <br><br>
+                            <em>Import from Sheets while preserving existing database records.</em>
+                        </p>
+                        <button class="action-btn primary" id="syncMergeBtn" style="width: 100%;">
+                            📥 合併同步 Merge Sync
+                        </button>
+                    </div>
+
+                    <!-- Overwrite Option -->
+                    <div class="admin-card" style="flex: 1; min-width: 280px; border-color: rgba(239, 68, 68, 0.3);">
+                        <h3 style="margin-bottom: var(--spacing-sm); color: #ef4444;">⚠️ 覆蓋模式 Overwrite</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-md);">
+                            <strong style="color: #ef4444;">危險操作！</strong> 這會刪除資料庫中的所有資料，並用 Google Sheets 的資料完全取代。
+                            <br><br>
+                            <em><strong>DANGER:</strong> This will DELETE all database data and replace with Sheets
+                                data.</em>
+                        </p>
+                        <button class="action-btn danger" id="syncOverwriteBtn" style="width: 100%;">
+                            ⚠️ 覆蓋同步 Overwrite Sync
+                        </button>
+                    </div>
+                </div>
+
+                <div id="syncStatus" style="margin-top: var(--spacing-lg); display: none;">
+                    <div class="loading-spinner" style="margin: 0 auto;"></div>
+                    <p style="text-align: center; margin-top: var(--spacing-sm);">同步中 Syncing...</p>
+                </div>
+
+                <div id="syncResult" style="margin-top: var(--spacing-lg);"></div>
             </div>
         </div>
     </div>

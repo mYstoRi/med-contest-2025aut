@@ -211,7 +211,7 @@ async function fetchFromSheets() {
     };
 }
 
-// API Handler
+// API Handler - Database first, no auto-sync from sheets
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -227,54 +227,26 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Check for force refresh query param
-        const forceRefresh = req.query.refresh === 'true';
-
-        // Try to get from cache first
-        if (!forceRefresh) {
-            const meta = await getCacheMeta();
-            if (meta?.syncedAt) {
-                const cacheAge = Date.now() - new Date(meta.syncedAt).getTime();
-                // Cache is valid for 5 minutes
-                if (cacheAge < 5 * 60 * 1000) {
-                    const [meditation, practice, classData] = await Promise.all([
-                        getCache(CACHE_KEYS.MEDITATION),
-                        getCache(CACHE_KEYS.PRACTICE),
-                        getCache(CACHE_KEYS.CLASS),
-                    ]);
-
-                    if (meditation && practice && classData) {
-                        return res.status(200).json({
-                            meditation,
-                            practice,
-                            class: classData,
-                            recentActivity: meta.recentActivity || [],
-                            syncedAt: meta.syncedAt,
-                            fromCache: true,
-                        });
-                    }
-                }
-            }
-        }
-
-        // Cache miss or stale - fetch from Sheets
-        console.log('Cache miss - fetching from Google Sheets');
-        const data = await fetchFromSheets();
-
-        // Store in cache
-        await Promise.all([
-            setCache(CACHE_KEYS.MEDITATION, data.meditation),
-            setCache(CACHE_KEYS.PRACTICE, data.practice),
-            setCache(CACHE_KEYS.CLASS, data.class),
-            setCacheMeta({
-                syncedAt: data.syncedAt,
-                recentActivity: data.recentActivity,
-            }),
+        // Get data from database
+        const [meditation, practice, classData, meta] = await Promise.all([
+            getCache(CACHE_KEYS.MEDITATION),
+            getCache(CACHE_KEYS.PRACTICE),
+            getCache(CACHE_KEYS.CLASS),
+            getCacheMeta(),
         ]);
 
+        // Check if database has data
+        const hasData = meditation || practice || classData;
+
+        // Return whatever is in the database (may be empty for new installs)
         return res.status(200).json({
-            ...data,
-            fromCache: false,
+            meditation: meditation || { dates: [], members: [] },
+            practice: practice || { dates: [], members: [] },
+            class: classData || { dates: [], members: [] },
+            recentActivity: meta?.recentActivity || [],
+            syncedAt: meta?.syncedAt || null,
+            isEmpty: !hasData,
+            message: hasData ? null : 'Database is empty. Use admin panel to sync from Google Sheets.',
         });
     } catch (error) {
         console.error('Data API error:', error);

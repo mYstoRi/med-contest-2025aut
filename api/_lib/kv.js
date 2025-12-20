@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 
-// Cache TTL in seconds (5 minutes)
+// Cache TTL in seconds (5 minutes) - for temporary data like sessions
 const CACHE_TTL = 5 * 60;
 
 /**
@@ -19,7 +19,7 @@ export async function getCache(key) {
 }
 
 /**
- * Set cached data with TTL
+ * Set cached data with TTL (for temporary data)
  * @param {string} key - Cache key
  * @param {any} value - Value to cache
  * @param {number} ttl - TTL in seconds (default: 5 minutes)
@@ -29,6 +29,19 @@ export async function setCache(key, value, ttl = CACHE_TTL) {
         await kv.set(key, value, { ex: ttl });
     } catch (error) {
         console.error(`KV set error for key ${key}:`, error);
+    }
+}
+
+/**
+ * Set data permanently (no TTL) - for main data that persists until sync
+ * @param {string} key - Data key
+ * @param {any} value - Value to store
+ */
+export async function setDataPermanent(key, value) {
+    try {
+        await kv.set(key, value);
+    } catch (error) {
+        console.error(`KV permanent set error for key ${key}:`, error);
     }
 }
 
@@ -48,20 +61,23 @@ export async function deleteCache(key) {
  * Get cache metadata (last sync time, etc.)
  */
 export async function getCacheMeta() {
-    return getCache('cache:meta');
+    return getCache('data:meta');
 }
 
 /**
- * Update cache metadata
+ * Update cache metadata (permanent - no TTL)
  */
 export async function setCacheMeta(meta) {
-    return setCache('cache:meta', meta, CACHE_TTL);
+    return setDataPermanent('data:meta', meta);
 }
 
-// Cache keys
-export const CACHE_KEYS = {
-    MEDITATION: 'cache:meditation',
-    PRACTICE: 'cache:practice',
-    CLASS: 'cache:class',
-    META: 'cache:meta',
+// Data keys (permanent storage)
+export const DATA_KEYS = {
+    MEDITATION: 'data:meditation',
+    PRACTICE: 'data:practice',
+    CLASS: 'data:class',
+    META: 'data:meta',
 };
+
+// Legacy cache keys (for backwards compatibility during transition)
+export const CACHE_KEYS = DATA_KEYS;
