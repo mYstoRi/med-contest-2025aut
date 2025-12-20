@@ -68,10 +68,12 @@ function parseMeditationSheet(csvText) {
 
 function parsePracticeSheet(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
-    const datesRow = lines[1] || [];
+    const pointsRow = lines[0] || []; // Row 0 = points per session
+    const datesRow = lines[1] || []; // Row 1 = dates
     const dates = datesRow.slice(3) || [];
     const members = [];
 
+    // Data starts from row 2
     for (let i = 2; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 3) continue;
@@ -80,14 +82,16 @@ function parsePracticeSheet(csvText) {
         const name = row[1];
         if (!team || !name) continue;
 
+        // Calculate points from attendance * points per session
         const daily = {};
         let total = 0;
         for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
             const date = dates[j - 3];
-            const points = parseFloat(row[j]) || 0;
-            if (date && points > 0) {
-                daily[date] = points;
-                total += points;
+            const attended = parseFloat(row[j]) || 0;
+            const sessionPoints = parseFloat(pointsRow[j]) || 0;
+            if (date && attended > 0 && sessionPoints > 0) {
+                daily[date] = sessionPoints;
+                total += sessionPoints;
             }
         }
 
