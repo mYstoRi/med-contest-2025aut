@@ -255,29 +255,11 @@ export default async function handler(req, res) {
                 timestamp: a.createdAt || a.date,
             }));
 
-        // Merge two pre-sorted arrays (both newest first) using efficient merge
-        const mergePreSorted = (arr1, arr2) => {
-            const parseDate = (dateStr) => {
-                if (!dateStr) return 0;
-                const normalized = (dateStr || '').replace(/\//g, '-');
-                return new Date(normalized).getTime() || 0;
-            };
-
-            const result = [];
-            let i = 0, j = 0;
-
-            while (i < arr1.length && j < arr2.length && result.length < 50) {
-                if (parseDate(arr1[i].date) >= parseDate(arr2[j].date)) {
-                    result.push(arr1[i++]);
-                } else {
-                    result.push(arr2[j++]);
-                }
-            }
-
-            while (i < arr1.length && result.length < 50) result.push(arr1[i++]);
-            while (j < arr2.length && result.length < 50) result.push(arr2[j++]);
-
-            return result;
+        // Parse date helper for sorting
+        const parseDate = (dateStr) => {
+            if (!dateStr) return 0;
+            const normalized = (dateStr || '').replace(/\//g, '-');
+            return new Date(normalized).getTime() || 0;
         };
 
         // Combine synced and manual activities, then sort by date (newest first)
