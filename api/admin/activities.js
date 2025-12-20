@@ -67,177 +67,39 @@ function parseCSVLine(line) {
 }
 
 /**
- * Get activities from Google Sheets (direct fetch)
- * Converts the denormalized Sheets data to normalized activity format
+ * Get activities from database (synced data)
+ * Uses the same data that was synced via /api/admin/sync
  */
-async function getActivitiesFromSheetsCache() {
+async function getActivitiesFromDatabase() {
     const activities = [];
-    let formCSV = ''; // Declare at function scope for individual sessions
 
     try {
-        // First try cache for structured data
-        let [meditation, practice, classData] = await Promise.all([
-            getCache(CACHE_KEYS.MEDITATION),
-            getCache(CACHE_KEYS.PRACTICE),
-            getCache(CACHE_KEYS.CLASS),
+        // Get synced data from database (same keys as sync.js uses)
+        const [meditation, practice, classData, meta] = await Promise.all([
+            getCache('data:meditation'),
+            getCache('data:practice'),
+            getCache('data:class'),
+            getCache('data:meta'),
         ]);
 
-        // Always fetch Form Responses for individual meditation sessions
-        const formResp = await fetch(getSheetUrl(SHEETS.FORM_RESPONSES));
-        formCSV = formResp.ok ? await formResp.text() : '';
-
-        // If cache is empty, fetch structured data directly from Google Sheets
-        if (!meditation?.members || meditation.members.length === 0) {
-            console.log('Cache empty, fetching directly from Google Sheets');
-
-            const [medResp, pracResp, classResp] = await Promise.all([
-                fetch(getSheetUrl(SHEETS.MEDITATION)),
-                fetch(getSheetUrl(SHEETS.PRACTICE)),
-                fetch(getSheetUrl(SHEETS.CLASS)),
-            ]);
-
-            const [medCSV, pracCSV, classCSV] = await Promise.all([
-                medResp.ok ? medResp.text() : '',
-                pracResp.ok ? pracResp.text() : '',
-                classResp.ok ? classResp.text() : '',
-            ]);
-
-            // Parse meditation CSV
-            // Columns: team(0), name(1), total(2), dates(3+)
-            if (medCSV) {
-                const lines = medCSV.split('\n').map(parseCSVLine);
-                const headerRow = lines[0] || [];
-                // Filter to only valid dates (contain '/')
-                const dateColumns = [];
-                for (let c = 3; c < headerRow.length; c++) {
-                    if (headerRow[c] && headerRow[c].includes('/')) {
-                        dateColumns.push({ col: c, date: headerRow[c] });
-                    }
-                }
-                meditation = { members: [] };
-
-                for (let i = 1; i < lines.length; i++) {
-                    const row = lines[i];
-                    if (!row || row.length < 3) continue;
-                    const team = row[0], name = row[1];
-                    if (!team || !name) continue;
-
-                    const daily = {};
-                    for (const { col, date } of dateColumns) {
-                        const value = parseFloat(row[col]) || 0;
-                        if (value > 0) daily[date] = value;
-                    }
-                    meditation.members.push({ team, name, daily });
-                }
-            }
-
-            // Parse practice CSV
-            // Row 0 = points per session, Row 1 = dates, Data starts from row 2
-            // Columns: team(0), name(1), total(2), dates(3+)
-            if (pracCSV) {
-                const lines = pracCSV.split('\n').map(parseCSVLine);
-                const pointsRow = lines[0] || []; // Row 0 = points per session
-                const headerRow = lines[1] || []; // Row 1 = dates
-                const dateColumns = [];
-                for (let c = 3; c < headerRow.length; c++) {
-                    if (headerRow[c] && headerRow[c].includes('/')) {
-                        const points = parseFloat(pointsRow[c]) || 0;
-                        dateColumns.push({ col: c, date: headerRow[c], points });
-                    }
-                }
-                practice = { members: [] };
-
-                // Data starts from row 2
-                for (let i = 2; i < lines.length; i++) {
-                    const row = lines[i];
-                    if (!row || row.length < 3) continue;
-                    const team = row[0], name = row[1];
-                    if (!team || !name) continue;
-
-                    const daily = {};
-                    for (const { col, date, points } of dateColumns) {
-                        const attended = parseFloat(row[col]) || 0;
-                        if (attended > 0) {
-                            daily[date] = points; // Store the points earned, not just attendance
-                        }
-                    }
-                    if (Object.keys(daily).length > 0) {
-                        practice.members.push({ team, name, daily });
-                    }
-                }
-            }
-
-
-            // Parse class CSV
-            // Columns: team(0), name(1), tier(2), class(3), total(4), dates(5+)
-            if (classCSV) {
-                const lines = classCSV.split('\n').map(parseCSVLine);
-                const headerRow = lines[0] || [];
-                const dateColumns = [];
-                for (let c = 5; c < headerRow.length; c++) {
-                    if (headerRow[c] && headerRow[c].includes('/')) {
-                        dateColumns.push({ col: c, date: headerRow[c] });
-                    }
-                }
-                classData = { members: [] };
-
-                for (let i = 1; i < lines.length; i++) {
-                    const row = lines[i];
-                    if (!row || row.length < 5) continue;
-                    const team = row[0], name = row[1];
-                    if (!team || !name) continue;
-
-                    const daily = {};
-                    for (const { col, date } of dateColumns) {
-                        const value = parseFloat(row[col]) || 0;
-                        if (value > 0) daily[date] = value;
-                    }
-                    classData.members.push({ team, name, daily });
-
-                }
-            }
-        }
-
-        // Build member name -> team mapping from meditation sheet
-        const memberTeamMap = {};
+        // Convert meditation data to activities
         if (meditation?.members) {
             for (const member of meditation.members) {
-                memberTeamMap[member.name] = member.team;
-            }
-        }
-
-        // Parse Form Responses for individual meditation sessions
-        // Columns: timestamp(0), name(1), date(2), minutes(3), [comments(4) - NOT team]
-        if (formCSV) {
-            const lines = formCSV.split('\n').map(parseCSVLine);
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-
-                const timestamp = row[0];
-                const name = row[1];
-                const date = row[2];
-                const minutes = parseFloat(row[3]) || 0;
-                // Use memberTeamMap ONLY - column 4 contains comments, not team
-                const team = memberTeamMap[name] || 'Unknown';
-
-                if (!name || minutes <= 0) continue;
-
-                // Use timestamp for unique ID so each session is separate
-                const uniqueId = timestamp ?
-                    `form_med_${name}_${timestamp.replace(/[^a-zA-Z0-9]/g, '')}` :
-                    `form_med_${name}_${date}_${Math.random().toString(36).substring(7)}`;
-
-                activities.push({
-                    id: uniqueId,
-                    type: 'meditation',
-                    team,
-                    member: name,
-                    date,
-                    value: minutes,
-                    timestamp,
-                    source: 'form'
-                });
+                if (member.daily) {
+                    for (const [date, value] of Object.entries(member.daily)) {
+                        if (value > 0) {
+                            activities.push({
+                                id: `db_med_${member.team}_${member.name}_${date}`,
+                                type: 'meditation',
+                                team: member.team,
+                                member: member.name,
+                                date,
+                                value,
+                                source: 'database'
+                            });
+                        }
+                    }
+                }
             }
         }
 
@@ -248,13 +110,13 @@ async function getActivitiesFromSheetsCache() {
                     for (const [date, value] of Object.entries(member.daily)) {
                         if (value > 0) {
                             activities.push({
-                                id: `sheets_prac_${member.team}_${member.name}_${date}`,
+                                id: `db_prac_${member.team}_${member.name}_${date}`,
                                 type: 'practice',
                                 team: member.team,
                                 member: member.name,
                                 date,
                                 value,
-                                source: 'sheets'
+                                source: 'database'
                             });
                         }
                     }
@@ -269,13 +131,13 @@ async function getActivitiesFromSheetsCache() {
                     for (const [date, value] of Object.entries(member.daily)) {
                         if (value > 0) {
                             activities.push({
-                                id: `sheets_class_${member.team}_${member.name}_${date}`,
+                                id: `db_class_${member.team}_${member.name}_${date}`,
                                 type: 'class',
                                 team: member.team,
                                 member: member.name,
                                 date,
                                 value,
-                                source: 'sheets'
+                                source: 'database'
                             });
                         }
                     }
@@ -283,84 +145,32 @@ async function getActivitiesFromSheetsCache() {
             }
         }
     } catch (error) {
-        console.error('Failed to get activities from Sheets:', error);
+        console.error('Failed to get activities from database:', error);
     }
 
     // Sort activities by date (newest first)
-    // Parse date helper - handles both YYYY/MM/DD and MM/DD formats
     const parseDateToMs = (dateStr) => {
         if (!dateStr) return 0;
         const parts = dateStr.split('/');
-
         let year, month, day;
         if (parts.length === 3) {
-            // YYYY/MM/DD format (e.g., "2025/12/19")
             year = parseInt(parts[0], 10);
             month = parseInt(parts[1], 10);
             day = parseInt(parts[2], 10);
         } else if (parts.length === 2) {
-            // MM/DD format (e.g., "12/19")
             month = parseInt(parts[0], 10) || 1;
             day = parseInt(parts[1], 10) || 1;
-            // Assume year based on month (Dec-May = spans new year)
             year = month < 6 ? 2026 : 2025;
         } else {
             return 0;
         }
-
         return new Date(year, month - 1, day).getTime();
     };
 
-    // Parse timestamp helper for form responses - returns milliseconds
-    // Format: "2025/12/10 下午 5:31:28" (date, AM/PM indicator, time - 3 parts)
-    const parseTimestampToMs = (ts) => {
-        if (!ts) return 0;
-        try {
-            const parts = ts.split(' ');
-            if (parts.length < 2) return 0;
-
-            const datePart = parts[0];
-            // Handle both "下午 5:31:28" (3 parts) and "下午5:31:28" (2 parts) formats
-            let isPM = false;
-            let timePart = '';
-
-            if (parts.length >= 3) {
-                // 3-part format: "2025/12/10 下午 5:31:28"
-                isPM = parts[1].includes('下午');
-                timePart = parts[2];
-            } else {
-                // 2-part format: "2025/12/10 下午5:31:28"
-                timePart = parts[1];
-                isPM = timePart.includes('下午');
-                timePart = timePart.replace('下午', '').replace('上午', '');
-            }
-
-            const [hours, minutes, seconds] = timePart.split(':').map(Number);
-            let hour24 = hours || 0;
-            if (isPM && hours < 12) hour24 = hours + 12;
-            if (!isPM && hours === 12) hour24 = 0;
-
-            const [year, month, day] = datePart.split('/').map(Number);
-            return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0).getTime();
-        } catch {
-            return 0;
-        }
-    };
-
-    // Sort by activity date (newest first), then by timestamp within same date
     activities.sort((a, b) => {
         const dateA = parseDateToMs(a.date);
         const dateB = parseDateToMs(b.date);
-
-        // Primary sort: by activity date (descending)
-        if (dateB !== dateA) {
-            return dateB - dateA;
-        }
-
-        // Secondary sort: by submission time if same date (descending)
-        const tsA = a.timestamp ? parseTimestampToMs(a.timestamp) : 0;
-        const tsB = b.timestamp ? parseTimestampToMs(b.timestamp) : 0;
-        return tsB - tsA;
+        return dateB - dateA;
     });
 
     return activities;
@@ -384,17 +194,17 @@ export default async function handler(req, res) {
         if (!isAuthed) return;
     }
 
-    // GET /api/admin/activities - Get all activities (from Sheets cache + manually added)
+    // GET /api/admin/activities - Get all activities (from database + manually added)
     if (req.method === 'GET') {
         try {
             // Get manually added activities
             const manualActivities = await getActivities();
 
-            // Get activities from Google Sheets cache
-            const sheetsActivities = await getActivitiesFromSheetsCache();
+            // Get activities from database (synced data)
+            const dbActivities = await getActivitiesFromDatabase();
 
-            // Merge: manual activities first (they can override)
-            const allActivities = [...sheetsActivities, ...manualActivities];
+            // Merge: database activities first, then manual overrides
+            const allActivities = [...dbActivities, ...manualActivities];
 
             const { type, team, member, date, source } = req.query || {};
 
@@ -449,7 +259,7 @@ export default async function handler(req, res) {
 
             return res.status(200).json({
                 count: filtered.length,
-                totalSheets: sheetsActivities.length,
+                totalDatabase: dbActivities.length,
                 totalManual: manualActivities.length,
                 activities: filtered
             });
