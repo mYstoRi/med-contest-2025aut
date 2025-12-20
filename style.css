@@ -820,6 +820,24 @@ body {
   font-size: 0.8rem;
 }
 
+.admin-link {
+  display: inline-block;
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  border-radius: var(--radius-sm);
+}
+
+.admin-link:hover {
+  opacity: 1;
+  color: var(--accent-primary);
+  background: var(--glass-bg);
+}
+
 /* ========================================
    Loading State
    ======================================== */
