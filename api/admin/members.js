@@ -303,20 +303,85 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'Member ID required' });
             }
 
+            // Find the member first to get name and team
             const members = await getMembers();
-            const index = members.findIndex(m => m.id === id);
+            let memberToDelete = null;
+            let memberIndex = members.findIndex(m => m.id === id);
 
-            if (index === -1) {
+            if (memberIndex !== -1) {
+                memberToDelete = members[memberIndex];
+            } else {
+                // Try to find by db_ id pattern (for database-sourced members)
+                // Format: db_${team}_${name}
+                if (id.startsWith('db_')) {
+                    const match = id.match(/^db_(.+)_(.+)$/);
+                    if (match) {
+                        memberToDelete = { team: match[1], name: match[2] };
+                    }
+                }
+            }
+
+            if (!memberToDelete) {
                 return res.status(404).json({ error: 'Member not found' });
             }
 
-            const deleted = members.splice(index, 1)[0];
-            await saveMembers(members);
+            const { name, team } = memberToDelete;
+            console.log(`Deleting member: ${name} from team: ${team}`);
+
+            // 1. Remove from manual members list
+            if (memberIndex !== -1) {
+                members.splice(memberIndex, 1);
+                await saveMembers(members);
+                console.log(`Removed from members:all`);
+            }
+
+            // 2. Remove from meditation data
+            const meditation = await getCache(CACHE_KEYS.MEDITATION);
+            if (meditation?.members) {
+                const medIdx = meditation.members.findIndex(m => m.name === name && m.team === team);
+                if (medIdx !== -1) {
+                    meditation.members.splice(medIdx, 1);
+                    await setCache(CACHE_KEYS.MEDITATION, meditation, 60 * 60 * 24 * 365);
+                    console.log(`Removed from meditation data`);
+                }
+            }
+
+            // 3. Remove from practice data
+            const practice = await getCache(CACHE_KEYS.PRACTICE);
+            if (practice?.members) {
+                const pracIdx = practice.members.findIndex(m => m.name === name && m.team === team);
+                if (pracIdx !== -1) {
+                    practice.members.splice(pracIdx, 1);
+                    await setCache(CACHE_KEYS.PRACTICE, practice, 60 * 60 * 24 * 365);
+                    console.log(`Removed from practice data`);
+                }
+            }
+
+            // 4. Remove from class data
+            const classData = await getCache(CACHE_KEYS.CLASS);
+            if (classData?.members) {
+                const classIdx = classData.members.findIndex(m => m.name === name && m.team === team);
+                if (classIdx !== -1) {
+                    classData.members.splice(classIdx, 1);
+                    await setCache(CACHE_KEYS.CLASS, classData, 60 * 60 * 24 * 365);
+                    console.log(`Removed from class data`);
+                }
+            }
+
+            // 5. Remove associated activities
+            const activities = await getCache('activities:all');
+            if (activities && Array.isArray(activities)) {
+                const filtered = activities.filter(a => !(a.member === name && a.team === team));
+                if (filtered.length !== activities.length) {
+                    await setCache('activities:all', filtered, 60 * 60 * 24 * 7);
+                    console.log(`Removed ${activities.length - filtered.length} activities`);
+                }
+            }
 
             return res.status(200).json({
                 success: true,
-                deleted,
-                message: 'Member deleted successfully'
+                deleted: { name, team },
+                message: 'Member deleted from all data sources'
             });
         } catch (error) {
             console.error('Delete member error:', error);

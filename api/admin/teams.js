@@ -52,13 +52,33 @@ async function saveTeams(teams) {
 }
 
 /**
- * Check if team has members
+ * Check if team has members (in any data source)
  */
 async function teamHasMembers(teamName) {
+    // Check meditation data
     const meditation = await getCache(DATA_KEYS.MEDITATION);
-    if (meditation?.members) {
-        return meditation.members.some(m => m.team === teamName);
+    if (meditation?.members?.some(m => m.team === teamName)) {
+        return true;
     }
+
+    // Check practice data
+    const practice = await getCache(DATA_KEYS.PRACTICE);
+    if (practice?.members?.some(m => m.team === teamName)) {
+        return true;
+    }
+
+    // Check class data
+    const classData = await getCache(DATA_KEYS.CLASS);
+    if (classData?.members?.some(m => m.team === teamName)) {
+        return true;
+    }
+
+    // Check manual members
+    const manualMembers = await getCache('members:all');
+    if (manualMembers?.some(m => m.team === teamName)) {
+        return true;
+    }
+
     return false;
 }
 
