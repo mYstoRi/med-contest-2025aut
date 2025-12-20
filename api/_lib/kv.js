@@ -1,4 +1,11 @@
-import { kv } from '@vercel/kv';
+import { createClient } from '@vercel/kv';
+
+// Configure KV client using Upstash Redis environment variables
+// @vercel/kv expects KV_REST_API_URL/TOKEN but we have UPSTASH_REDIS_REST_URL/TOKEN
+const kv = createClient({
+    url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
+});
 
 // Cache TTL in seconds (5 minutes) - for temporary data like sessions
 const CACHE_TTL = 5 * 60;
