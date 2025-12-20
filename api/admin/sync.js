@@ -237,9 +237,11 @@ export default async function handler(req, res) {
 
         // Fetch data from sheets
         const sheetData = await fetchFromSheets();
+        console.log(`📊 Fetched: ${sheetData.meditation.members.length} meditation, ${sheetData.practice.members.length} practice, ${sheetData.class.members.length} class`);
 
         if (mode === 'overwrite') {
             // Overwrite: Replace everything with sheet data
+            console.log('💾 Saving to database...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, sheetData.meditation),
                 setDataPermanent(DATA_KEYS.PRACTICE, sheetData.practice),
@@ -250,6 +252,12 @@ export default async function handler(req, res) {
                     lastSyncMode: 'overwrite',
                 }),
             ]);
+
+            // Verify data was saved by reading it back
+            console.log('🔍 Verifying save...');
+            const verifyMed = await getCache(DATA_KEYS.MEDITATION);
+            const verified = verifyMed?.members?.length || 0;
+            console.log(`✅ Verified: ${verified} meditation members saved`);
 
             return res.status(200).json({
                 success: true,
@@ -262,6 +270,7 @@ export default async function handler(req, res) {
                     class: sheetData.class.members.length,
                     recentActivity: sheetData.recentActivity.length,
                 },
+                verified: verified,
             });
         } else {
             // Merge: Get existing data first
@@ -297,6 +306,7 @@ export default async function handler(req, res) {
             const mergedPrac = mergeMembers(existingPrac, sheetData.practice);
             const mergedClass = mergeMembers(existingClass, sheetData.class);
 
+            console.log('💾 Saving merged data...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, mergedMed),
                 setDataPermanent(DATA_KEYS.PRACTICE, mergedPrac),
@@ -307,6 +317,12 @@ export default async function handler(req, res) {
                     lastSyncMode: 'merge',
                 }),
             ]);
+
+            // Verify data was saved by reading it back
+            console.log('🔍 Verifying merge save...');
+            const verifyMed = await getCache(DATA_KEYS.MEDITATION);
+            const verified = verifyMed?.members?.length || 0;
+            console.log(`✅ Verified: ${verified} meditation members saved`);
 
             return res.status(200).json({
                 success: true,
@@ -319,6 +335,7 @@ export default async function handler(req, res) {
                     class: mergedClass.members.length,
                     recentActivity: sheetData.recentActivity.length,
                 },
+                verified: verified,
             });
         }
     } catch (error) {

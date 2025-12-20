@@ -36,12 +36,16 @@ export async function setCache(key, value, ttl = CACHE_TTL) {
  * Set data permanently (no TTL) - for main data that persists until sync
  * @param {string} key - Data key
  * @param {any} value - Value to store
+ * @returns {Promise<boolean>} true if successful, throws on error
  */
 export async function setDataPermanent(key, value) {
     try {
         await kv.set(key, value);
+        console.log(`✅ KV saved: ${key}`);
+        return true;
     } catch (error) {
-        console.error(`KV permanent set error for key ${key}:`, error);
+        console.error(`❌ KV permanent set error for key ${key}:`, error);
+        throw error; // Re-throw so caller knows it failed
     }
 }
 
