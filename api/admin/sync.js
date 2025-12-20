@@ -340,9 +340,12 @@ export default async function handler(req, res) {
         }
     } catch (error) {
         console.error('Sync error:', error);
+        console.error('Error stack:', error.stack);
         return res.status(500).json({
             error: 'Sync failed',
-            details: error.message
+            details: error.message,
+            stack: error.stack,
+            kvConfigured: !!process.env.KV_REST_API_URL,
         });
     }
 }
