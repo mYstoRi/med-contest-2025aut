@@ -371,6 +371,73 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'Activity ID required' });
             }
 
+            // Check if this is a database activity (starts with db_)
+            if (id.startsWith('db_')) {
+                // Parse the ID format: db_{type}_{team}_{name}_{date}
+                const parts = id.split('_');
+                if (parts.length < 5) {
+                    return res.status(400).json({ error: 'Invalid database activity ID format' });
+                }
+
+                const type = parts[1]; // med, prac, or class
+                // The team, name, and date are joined back - they may contain underscores
+                // Format is db_{type}_{team}_{name}_{date} where date is YYYY/MM/DD
+                // Find the date part (contains /)
+                const idRemainder = parts.slice(2).join('_');
+                const dateMatch = idRemainder.match(/(\d{4}\/\d{1,2}\/\d{1,2})$/);
+                if (!dateMatch) {
+                    return res.status(400).json({ error: 'Could not parse date from activity ID' });
+                }
+                const date = dateMatch[1];
+                const teamAndName = idRemainder.slice(0, -date.length - 1); // Remove _date from end
+                // teamAndName is "{team}_{name}" - split on first _
+                const firstUnderscore = teamAndName.indexOf('_');
+                if (firstUnderscore === -1) {
+                    return res.status(400).json({ error: 'Could not parse team/name from activity ID' });
+                }
+                const team = teamAndName.slice(0, firstUnderscore);
+                const name = teamAndName.slice(firstUnderscore + 1);
+
+                // Get the appropriate data key
+                let dataKey;
+                if (type === 'med') dataKey = 'data:meditation';
+                else if (type === 'prac') dataKey = 'data:practice';
+                else if (type === 'class') dataKey = 'data:class';
+                else {
+                    return res.status(400).json({ error: `Unknown activity type: ${type}` });
+                }
+
+                // Load the data
+                const data = await getCache(dataKey);
+                if (!data || !data.members) {
+                    return res.status(404).json({ error: 'Data not found' });
+                }
+
+                // Find the member
+                const member = data.members.find(m => m.team === team && m.name === name);
+                if (!member || !member.daily || !member.daily[date]) {
+                    return res.status(404).json({ error: 'Activity not found in database' });
+                }
+
+                // Delete the daily entry
+                const deletedValue = member.daily[date];
+                delete member.daily[date];
+
+                // Recalculate total
+                member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
+
+                // Save back using setDataPermanent (need to import it)
+                const { setDataPermanent } = await import('../_lib/kv.js');
+                await setDataPermanent(dataKey, data);
+
+                return res.status(200).json({
+                    success: true,
+                    deleted: { id, type, team, name, date, value: deletedValue },
+                    message: 'Database activity deleted successfully'
+                });
+            }
+
+            // Otherwise, check manual activities
             const activities = await getActivities();
             const index = activities.findIndex(a => a.id === id);
 
