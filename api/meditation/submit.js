@@ -66,9 +66,45 @@ export default async function handler(req, res) {
         // Find or create member entry
         let member = meditation.members.find(m => m.name === name);
         if (!member) {
-            // New member - we don't know their team, mark as Unknown
-            member = { team: 'Unknown', name, total: 0, daily: {} };
+            // Member not in meditation data - search other sources for their team
+            let detectedTeam = 'Unknown';
+
+            // 1. Check manual members list (admin-added members)
+            const manualMembers = await getCache('members:all');
+            if (manualMembers && Array.isArray(manualMembers)) {
+                const found = manualMembers.find(m => m.name === name);
+                if (found && found.team) {
+                    detectedTeam = found.team;
+                    console.log(`Found team from members:all: ${name} -> ${detectedTeam}`);
+                }
+            }
+
+            // 2. If still unknown, check practice/class data
+            if (detectedTeam === 'Unknown') {
+                const practice = await getCache(DATA_KEYS.PRACTICE);
+                if (practice?.members) {
+                    const found = practice.members.find(m => m.name === name);
+                    if (found && found.team) {
+                        detectedTeam = found.team;
+                        console.log(`Found team from practice: ${name} -> ${detectedTeam}`);
+                    }
+                }
+            }
+
+            if (detectedTeam === 'Unknown') {
+                const classData = await getCache(DATA_KEYS.CLASS);
+                if (classData?.members) {
+                    const found = classData.members.find(m => m.name === name);
+                    if (found && found.team) {
+                        detectedTeam = found.team;
+                        console.log(`Found team from class: ${name} -> ${detectedTeam}`);
+                    }
+                }
+            }
+
+            member = { team: detectedTeam, name, total: 0, daily: {} };
             meditation.members.push(member);
+            console.log(`Created new meditation member: ${name} (team: ${detectedTeam})`);
         }
 
         // Ensure daily object exists

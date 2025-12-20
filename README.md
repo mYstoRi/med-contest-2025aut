@@ -46,17 +46,11 @@ In Vercel dashboard → Settings → Environment Variables, add:
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token |
 | `ADMIN_PASSWORD` | Password for admin panel |
 
-### 5. Add Your Teams
+### 5. Create Teams
+1. Log in to `/admin.html`
+2. Go to **Manage Teams** tab
+3. Create your teams (name, short name, color)
 
-Edit `config.js` to set up your teams:
-
-```javascript
-TEAMS: [
-    { name: 'Team A', shortName: 'A', color: 'team-1' },
-    { name: 'Team B', shortName: 'B', color: 'team-2' },
-    // Add your teams...
-],
-```
 
 ### 6. Start Using!
 
@@ -80,15 +74,8 @@ npm run dev
 
 ### Team Configuration
 
-Edit `config.js` to customize teams:
+Teams are managed via the **Admin Panel** (`/admin.html`). You can add, edit, or delete teams dynamically without changing code.
 
-```javascript
-TEAMS: [
-    { name: '晨絜家中隊', shortName: '晨絜', color: 'team-1' },
-    { name: '明緯家中隊', shortName: '明緯', color: 'team-2' },
-    // Add or modify teams...
-],
-```
 
 ### Point System
 
