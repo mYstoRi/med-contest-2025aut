@@ -593,6 +593,101 @@ async function performSync(mode) {
 }
 
 // ========================================
+// Teams
+// ========================================
+let allTeams = [];
+
+async function loadTeamsTab() {
+    const table = $('teamsTable');
+    table.innerHTML = '<tr><td colspan="4" class="loading">載入中...</td></tr>';
+
+    try {
+        const data = await apiCall('/teams');
+        allTeams = data.teams || [];
+
+        if (allTeams.length === 0) {
+            table.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">沒有隊伍 No teams</td></tr>';
+            return;
+        }
+
+        table.innerHTML = allTeams.map(team => `
+            <tr>
+                <td>
+                    <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; background: ${team.color}; vertical-align: middle;"></span>
+                </td>
+                <td>${team.name}</td>
+                <td>${team.shortName}</td>
+                <td>
+                    <button class="action-btn small" onclick="editTeam('${team.id}')" title="編輯">✏️</button>
+                    <button class="action-btn small danger" onclick="deleteTeam('${team.id}', '${team.name}')" title="刪除">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        table.innerHTML = `<tr><td colspan="4" style="color: #ef4444;">載入失敗: ${error.message}</td></tr>`;
+    }
+}
+
+async function addTeam(event) {
+    event.preventDefault();
+
+    const name = $('teamName').value.trim();
+    const shortName = $('teamShortName').value.trim();
+    const color = $('teamColor').value;
+
+    try {
+        await apiCall('/teams', {
+            method: 'POST',
+            body: JSON.stringify({ name, shortName, color }),
+        });
+
+        showToast('隊伍已新增 Team added');
+        $('addTeamForm').reset();
+        loadTeamsTab();
+    } catch (error) {
+        showToast('新增失敗: ' + error.message, 'error');
+    }
+}
+
+async function deleteTeam(id, name) {
+    if (!confirm(`確定要刪除「${name}」嗎？\nDelete "${name}"?`)) return;
+
+    try {
+        await apiCall(`/teams?id=${id}`, { method: 'DELETE' });
+        showToast('隊伍已刪除 Team deleted');
+        loadTeamsTab();
+    } catch (error) {
+        showToast('刪除失敗: ' + error.message, 'error');
+    }
+}
+
+async function editTeam(id) {
+    const team = allTeams.find(t => t.id === id);
+    if (!team) return;
+
+    const newName = prompt('隊伍名稱 Team name:', team.name);
+    if (!newName || newName === team.name) return;
+
+    const newShortName = prompt('簡稱 Short name:', team.shortName);
+    if (!newShortName) return;
+
+    try {
+        await apiCall(`/teams?id=${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName, shortName: newShortName }),
+        });
+        showToast('隊伍已更新 Team updated');
+        loadTeamsTab();
+    } catch (error) {
+        showToast('更新失敗: ' + error.message, 'error');
+    }
+}
+
+// Make team functions available globally
+window.deleteTeam = deleteTeam;
+window.editTeam = editTeam;
+
+// ========================================
 // Tab Navigation
 // ========================================
 function switchTab(tabName) {
@@ -612,6 +707,7 @@ function switchTab(tabName) {
     if (tabName === 'activities') loadActivities();
     if (tabName === 'members') loadMembers();
     if (tabName === 'addRecords') loadAddRecordsTab();
+    if (tabName === 'teams') loadTeamsTab();
     if (tabName === 'sync') loadSyncTab();
 }
 
@@ -660,10 +756,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Forms
     $('addMemberForm').addEventListener('submit', addMember);
+    $('addTeamForm').addEventListener('submit', addTeam);
 
     // Refresh buttons
     $('refreshActivities').addEventListener('click', loadActivities);
     $('refreshMembers').addEventListener('click', loadMembers);
+    $('refreshTeams')?.addEventListener('click', loadTeamsTab);
 
     // Activity filters
     $('searchInput').addEventListener('input', renderActivities);

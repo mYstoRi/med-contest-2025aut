@@ -88,6 +88,7 @@ export const DATA_KEYS = {
     PRACTICE: 'data:practice',
     CLASS: 'data:class',
     META: 'data:meta',
+    TEAMS: 'data:teams',
 };
 
 // Legacy cache keys (for backwards compatibility during transition)
