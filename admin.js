@@ -9,6 +9,7 @@ const API_BASE = '/api/admin';
 // ========================================
 let isAuthenticated = false;
 let currentTab = 'activities';
+let allTeams = []; // Global teams cache
 
 // ========================================
 // DOM Elements
@@ -166,14 +167,9 @@ function renderActivities() {
     `).join('');
 }
 
-function getTeamShortName(team) {
-    const shortNames = {
-        '晨絜家中隊': '晨絜',
-        '明緯家中隊': '明緯',
-        '敬涵家中隊': '敬涵',
-        '宗翰家中隊': '宗翰'
-    };
-    return shortNames[team] || team;
+function getTeamShortName(teamName) {
+    const team = allTeams.find(t => t.name === teamName);
+    return team ? team.shortName : teamName;
 }
 
 function getTypeEmoji(type) {
@@ -371,13 +367,7 @@ async function loadCacheStatus() {
     }
 }
 
-// ========================================
-// Helpers
-// ========================================
-function getTeamShortName(teamName) {
-    const team = allTeams.find(t => t.name === teamName);
-    return team ? team.shortName : teamName;
-}
+
 
 // ========================================
 // Bulk Activity (Add Records Tab)
@@ -622,7 +612,7 @@ async function performSync(mode) {
 // ========================================
 // Teams
 // ========================================
-let allTeams = [];
+
 
 async function loadTeamsTab() {
     const table = $('teamsTable');
