@@ -661,6 +661,7 @@ async function addTeam(event) {
         showToast('隊伍已新增 Team added');
         $('addTeamForm').reset();
         loadTeamsTab();
+        populateTeamDropdowns(); // Refresh dropdowns
     } catch (error) {
         showToast('新增失敗: ' + error.message, 'error');
     }
@@ -673,6 +674,7 @@ async function deleteTeam(id, name) {
         await apiCall(`/teams?id=${id}`, { method: 'DELETE' });
         showToast('隊伍已刪除 Team deleted');
         loadTeamsTab();
+        populateTeamDropdowns(); // Refresh dropdowns
     } catch (error) {
         showToast('刪除失敗: ' + error.message, 'error');
     }
@@ -724,6 +726,7 @@ async function editTeam(id) {
         });
         showToast('隊伍已更新 Team updated');
         loadTeamsTab();
+        populateTeamDropdowns(); // Refresh dropdowns
     } catch (error) {
         showToast('更新失敗: ' + error.message, 'error');
     }
