@@ -156,7 +156,7 @@ function renderActivities() {
 
     tbody.innerHTML = filtered.map(activity => `
         <tr>
-            <td><span class="team-badge ${activity.team}">${getTeamShortName(activity.team)}</span></td>
+            <td>${renderTeamBadge(activity.team)}</td>
             <td>${activity.member}</td>
             <td>${formatActivityDate(activity.date)}</td>
             <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)}</td>
@@ -170,6 +170,18 @@ function renderActivities() {
 function getTeamShortName(teamName) {
     const team = allTeams.find(t => t.name === teamName);
     return team ? team.shortName : teamName;
+}
+
+function getTeamColor(teamName) {
+    const team = allTeams.find(t => t.name === teamName);
+    return team?.color || '#8b5cf6'; // Default purple
+}
+
+// Helper to render a team badge with dynamic colors
+function renderTeamBadge(teamName) {
+    const shortName = getTeamShortName(teamName);
+    const color = getTeamColor(teamName);
+    return `<span class="team-badge" style="background-color: ${color}20; color: ${color}; border: 1px solid ${color}40;">${shortName}</span>`;
 }
 
 function getTypeEmoji(type) {
@@ -277,7 +289,7 @@ async function loadMembers() {
             return `
             <tr>
                 <td>${member.name}</td>
-                <td><span class="team-badge ${member.team}">${getTeamShortName(member.team)}</span></td>
+                <td>${renderTeamBadge(member.team)}</td>
                 <td>${totalScore} 分</td>
                 <td>
                     <button class="action-btn danger" onclick="deleteMember('${member.id}')">🗑️</button>
@@ -417,7 +429,7 @@ async function loadAddRecordsTab() {
             return `
                 <div class="team-group">
                     <div class="team-group-header">
-                        <span class="team-badge ${teamName}" style="background-color: ${team.color || '#ccc'}">${team.shortName}</span>
+                        ${renderTeamBadge(teamName)}
                         <button type="button" class="select-all-btn" onclick="toggleTeam('${teamName}')">全選</button>
                     </div>
                     <div class="member-checkboxes">
