@@ -239,11 +239,38 @@ export default async function handler(req, res) {
         ]);
 
         // Initialize structures if empty
+        const syncedRecentActivity = meta?.recentActivity || [];
+
+        // Convert manual activities to recentActivity format and merge
+        const manualRecentActivities = (manualActivities || [])
+            .filter(a => a.type === 'meditation') // Only meditation for activity feed
+            .map(a => ({
+                type: 'meditation',
+                name: a.member,
+                team: a.team,
+                date: a.date,
+                minutes: a.value,
+                points: a.value,
+                timestamp: a.createdAt || a.date, // Use creation time if available
+            }));
+
+        // Combine and sort by date (newest first)
+        const combinedActivity = [...syncedRecentActivity, ...manualRecentActivities];
+        combinedActivity.sort((a, b) => {
+            // Parse dates: format is typically YYYY/MM/DD or YYYY-MM-DD
+            const parseDate = (dateStr) => {
+                if (!dateStr) return 0;
+                const normalized = dateStr.replace(/\//g, '-');
+                return new Date(normalized).getTime() || 0;
+            };
+            return parseDate(b.date) - parseDate(a.date);
+        });
+
         const result = {
             meditation: meditation || { dates: [], members: [] },
             practice: practice || { dates: [], members: [] },
             class: classData || { dates: [], members: [] },
-            recentActivity: meta?.recentActivity || [],
+            recentActivity: combinedActivity.slice(0, 50), // Limit to 50
             syncedAt: meta?.syncedAt || null,
         };
 
