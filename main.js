@@ -489,11 +489,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initSettings();
 
     console.log('🧘 Meditation Dashboard initialized');
-    console.log(`Auto-refresh interval: ${CONFIG.REFRESH_INTERVAL / 1000 / 60} minutes`);
 
     // Load data (async, may take time)
     loadData();
 
     // Auto-refresh every 5 minutes
-    setInterval(loadData, CONFIG.REFRESH_INTERVAL);
+    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    setInterval(loadData, REFRESH_INTERVAL);
 });
