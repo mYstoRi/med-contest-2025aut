@@ -667,15 +667,44 @@ async function editTeam(id) {
     if (!team) return;
 
     const newName = prompt('隊伍名稱 Team name:', team.name);
-    if (!newName || newName === team.name) return;
+    if (newName === null) return; // Cancelled
 
     const newShortName = prompt('簡稱 Short name:', team.shortName);
-    if (!newShortName) return;
+    if (newShortName === null) return; // Cancelled
+
+    // Color picker - show available colors
+    const colorOptions = [
+        { hex: '#8b5cf6', name: '🟣 紫色' },
+        { hex: '#10b981', name: '🟢 綠色' },
+        { hex: '#f59e0b', name: '🟠 橙色' },
+        { hex: '#ef4444', name: '🔴 紅色' },
+        { hex: '#3b82f6', name: '🔵 藍色' },
+        { hex: '#ec4899', name: '🩷 粉色' },
+        { hex: '#06b6d4', name: '🩵 青色' },
+        { hex: '#84cc16', name: '🟢 萊姆' },
+    ];
+
+    const currentColorIdx = colorOptions.findIndex(c => c.hex === team.color) + 1;
+    const colorList = colorOptions.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+    const colorPrompt = `選擇顏色 Choose color (1-${colorOptions.length}):\n${colorList}\n\n目前 Current: ${currentColorIdx || team.color}`;
+    const colorChoice = prompt(colorPrompt, currentColorIdx || '');
+
+    let newColor = team.color;
+    if (colorChoice !== null && colorChoice !== '') {
+        const idx = parseInt(colorChoice) - 1;
+        if (idx >= 0 && idx < colorOptions.length) {
+            newColor = colorOptions[idx].hex;
+        }
+    }
 
     try {
         await apiCall(`/teams?id=${id}`, {
             method: 'PUT',
-            body: JSON.stringify({ name: newName, shortName: newShortName }),
+            body: JSON.stringify({
+                name: newName || undefined,
+                shortName: newShortName || undefined,
+                color: newColor
+            }),
         });
         showToast('隊伍已更新 Team updated');
         loadTeamsTab();

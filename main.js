@@ -1,7 +1,7 @@
 // ========================================
 // Imports from Shared Modules
 // ========================================
-import { CONFIG, getTeamConfig } from './config.js';
+import { CONFIG } from './config.js';
 import {
     cleanName,
     formatNumber,
@@ -9,6 +9,15 @@ import {
     initTheme,
     initSettings
 } from './utils.js';
+
+// Team data from API (loaded dynamically)
+let teamsFromAPI = [];
+let teamColorMap = {}; // { teamName: hexColor }
+
+// Get team color (uses API data or fallback)
+function getTeamColor(teamName) {
+    return teamColorMap[teamName] || '#8b5cf6'; // Default purple
+}
 
 // ========================================
 // Rendering Functions
@@ -25,20 +34,20 @@ function renderTeamBars(teamScores) {
     const sortedTeams = Object.entries(teamScores)
         .sort((a, b) => b[1] - a[1]);
 
-    container.innerHTML = sortedTeams.map(([teamName, score]) => {
-        const config = getTeamConfig(teamName);
+    container.innerHTML = sortedTeams.map(([teamName, score], idx) => {
+        const color = getTeamColor(teamName);
         const percentage = Math.max((score / maxScore) * 100, 5); // Minimum 5% for visibility
         const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;
 
         return `
       <div class="team-bar-container">
         <div class="team-bar-wrapper">
-          <div class="particles" id="particles-${config.id}"></div>
-          <div class="team-bar ${config.color}" style="height: ${percentage}%">
+          <div class="particles" id="particles-${idx}"></div>
+          <div class="team-bar" style="height: ${percentage}%; background: linear-gradient(to top, ${color}, ${adjustColor(color, 40)}); box-shadow: 0 0 30px ${color}40;">
             <span class="team-bar-score">${formatNumber(Math.round(score))}</span>
           </div>
         </div>
-        <a href="${teamUrl}" class="team-name ${config.color}" style="text-decoration: none; cursor: pointer;">
+        <a href="${teamUrl}" class="team-name" style="color: ${color}; text-decoration: none; cursor: pointer;">
           ${teamName}
         </a>
       </div>
@@ -47,11 +56,20 @@ function renderTeamBars(teamScores) {
 
     // Add particle effects
     setTimeout(() => {
-        sortedTeams.forEach(([teamName]) => {
-            const config = getTeamConfig(teamName);
-            addParticles(`particles-${config.id}`);
+        sortedTeams.forEach(([teamName], idx) => {
+            addParticles(`particles-${idx}`);
         });
     }, 100);
+}
+
+// Adjust color brightness
+function adjustColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
 }
 
 function addParticles(containerId) {
@@ -112,7 +130,7 @@ function renderLeaderboard(teamScores) {
     const medals = ['🥇', '🥈', '🥉', ''];
 
     container.innerHTML = sortedTeams.map(([teamName, score], index) => {
-        const config = getTeamConfig(teamName);
+        const color = getTeamColor(teamName);
         const rank = index + 1;
         const diff = topScore - score;
         const diffText = rank === 1 ? '領先中 Leading!' : `落後 ${formatNumber(Math.round(diff))} 分`;
@@ -124,10 +142,10 @@ function renderLeaderboard(teamScores) {
           ${medals[index] ? `<span class="rank-medal">${medals[index]}</span>` : rank}
         </div>
         <div class="team-info">
-          <div class="team-info-name ${config.color}-text">${teamName}</div>
+          <div class="team-info-name" style="color: ${color};">${teamName}</div>
           <div class="team-info-diff">${diffText}</div>
         </div>
-        <div class="team-score ${config.color}-text">${formatNumber(Math.round(score))}</div>
+        <div class="team-score" style="color: ${color};">${formatNumber(Math.round(score))}</div>
       </a>
     `;
     }).join('');
@@ -143,7 +161,7 @@ function renderActivityFeed(activities) {
     }
 
     container.innerHTML = activities.map(activity => {
-        const config = getTeamConfig(activity.team);
+        const color = getTeamColor(activity.team);
         // Dual streak badges
         const activityBadge = activity.activityStreak > 0 ? `<span class="activity-streak act" title="${activity.activityStreak} 天精進連續">🔥${activity.activityStreak}</span>` : '';
         const soloBadge = activity.soloStreak > 0 ? `<span class="activity-streak solo" title="${activity.soloStreak} 天獨修連續">🧘${activity.soloStreak}</span>` : '';
@@ -153,13 +171,13 @@ function renderActivityFeed(activities) {
             ? `<a href="${memberUrl}" class="activity-name-link">${activity.name}</a>`
             : '匿名';
         return `
-      <div class="activity-item ${config.color}">
+      <div class="activity-item" style="border-left-color: ${color};">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
           <div class="activity-name">${nameDisplay}${streakBadges}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
-        <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
+        <div class="activity-points" style="color: ${color};">+${Math.round(activity.points)}</div>
       </div>
     `;
     }).join('');
@@ -197,8 +215,8 @@ function calculateTeamScores(apiData) {
     const teamMembers = {};
     let topMeditator = { name: '--', points: 0, team: '' };
 
-    // Initialize teams
-    for (const team of CONFIG.TEAMS) {
+    // Initialize teams from API (if available) or discover from data
+    for (const team of teamsFromAPI) {
         teamScores[team.name] = 0;
         teamMembers[team.name] = [];
     }
@@ -236,7 +254,9 @@ function calculateTeamScores(apiData) {
     // Aggregate into team scores and find top meditator
     for (const data of Object.values(memberTotals)) {
         const total = data.meditation + data.practice + data.class;
-        teamScores[data.team] = (teamScores[data.team] || 0) + total;
+        if (teamScores[data.team] === undefined) teamScores[data.team] = 0;
+        if (!teamMembers[data.team]) teamMembers[data.team] = [];
+        teamScores[data.team] += total;
         teamMembers[data.team].push({ name: data.name, points: total });
 
         if (data.meditation > topMeditator.points) {
@@ -407,12 +427,27 @@ async function loadData() {
     try {
         console.log('Fetching data from API...');
 
-        // Single API call replaces 4 separate sheet fetches
-        const response = await fetch('/api/data');
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+        // Fetch teams and data in parallel
+        const [teamsResponse, dataResponse] = await Promise.all([
+            fetch('/api/admin/teams'),
+            fetch('/api/data')
+        ]);
+
+        // Process teams (build color map)
+        if (teamsResponse.ok) {
+            const teamsData = await teamsResponse.json();
+            teamsFromAPI = teamsData.teams || [];
+            teamColorMap = {};
+            for (const team of teamsFromAPI) {
+                teamColorMap[team.name] = team.color;
+            }
+            console.log('Loaded teams:', teamsFromAPI.length);
         }
-        const apiData = await response.json();
+
+        if (!dataResponse.ok) {
+            throw new Error(`API error: ${dataResponse.status}`);
+        }
+        const apiData = await dataResponse.json();
 
         console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
 
