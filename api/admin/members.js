@@ -32,34 +32,7 @@ function generateId() {
     return 'm_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 }
 
-// Google Sheets config
-const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
-const MEDITATION_SHEET = '禪定登記';
-
-function getSheetUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-function parseCSVLine(line) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    for (const char of line) {
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            values.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    values.push(current.trim());
-    return values;
-}
-
-const PRACTICE_SHEET = '共修登記';
-const CLASS_SHEET = '會館課登記';
+// Points config (used for class scoring)
 const CLASS_POINTS_PER_ATTENDANCE = 50;
 
 /**

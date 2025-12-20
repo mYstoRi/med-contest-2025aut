@@ -95,37 +95,6 @@ function sortActivitiesByDate(activities) {
     return activities.sort((a, b) => parseActivityDate(b.date) - parseActivityDate(a.date));
 }
 
-// Google Sheets config
-const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
-const SHEETS = {
-    MEDITATION: '禪定登記',
-    PRACTICE: '共修登記',
-    CLASS: '會館課登記',
-    FORM_RESPONSES: '表單回應 1',
-};
-
-function getSheetUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-function parseCSVLine(line) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    for (const char of line) {
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            values.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    values.push(current.trim());
-    return values;
-}
-
 /**
  * Get activities from database (synced data)
  * Uses the same data that was synced via /api/admin/sync

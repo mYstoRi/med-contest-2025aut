@@ -67,26 +67,6 @@ export function formatNumber(num) {
 }
 
 // ========================================
-// Sheet Fetching
-// ========================================
-
-/**
- * Get the URL for fetching a sheet as CSV
- */
-export function getSheetUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-/**
- * Fetch sheet data as text
- */
-export async function fetchSheetData(sheetName) {
-    const response = await fetch(getSheetUrl(sheetName));
-    if (!response.ok) throw new Error(`Failed to fetch ${sheetName}`);
-    return response.text();
-}
-
-// ========================================
 // Streak Calculation
 // ========================================
 
