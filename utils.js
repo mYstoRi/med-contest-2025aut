@@ -208,18 +208,20 @@ export function calculateDualStreaks(meditationDates, practiceDates = [], classD
  * Initialize theme from localStorage
  */
 export function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    console.log('🎨 Theme initialized:', savedTheme);
 }
 
 /**
  * Toggle between light and dark theme
  */
 export function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    console.log('🎨 Theme toggled to:', newTheme);
 }
 
 /**
