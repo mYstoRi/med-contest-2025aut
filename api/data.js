@@ -238,41 +238,43 @@ export default async function handler(req, res) {
             getCache('members:all'),
         ]);
 
-        // Initialize structures if empty
-        const syncedRecentActivity = meta?.recentActivity || [];
-
-        // Convert manual meditation activities to recentActivity format
-        // Note: manualActivities is now stored pre-sorted (newest first)
-        const manualRecentActivities = (manualActivities || [])
-            .filter(a => a.type === 'meditation')
-            .map(a => ({
-                type: 'meditation',
-                name: a.member,
-                team: a.team,
-                date: a.date,
-                minutes: a.value,
-                points: a.value,
-                timestamp: a.createdAt || a.date,
-            }));
-
-        // Parse date helper for sorting
+        // Generate recent activity directly from meditation data
+        // This is the source of truth - form submissions update this
         const parseDate = (dateStr) => {
             if (!dateStr) return 0;
             const normalized = (dateStr || '').replace(/\//g, '-');
             return new Date(normalized).getTime() || 0;
         };
 
-        // Combine synced and manual activities, then sort by date (newest first)
-        // Note: Synced data is sorted by timestamp, not date, so we need to re-sort
-        const allActivities = [...syncedRecentActivity, ...manualRecentActivities];
-        allActivities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
-        const combinedActivity = allActivities.slice(0, 50);
+        // Extract activities from meditation.daily entries
+        const meditationActivities = [];
+        const medData = meditation || { dates: [], members: [] };
+        for (const member of medData.members || []) {
+            if (member.daily) {
+                for (const [date, minutes] of Object.entries(member.daily)) {
+                    if (minutes > 0) {
+                        meditationActivities.push({
+                            type: 'meditation',
+                            name: member.name,
+                            team: member.team,
+                            date,
+                            minutes,
+                            points: minutes,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by date (newest first) and take top 50
+        meditationActivities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+        const recentActivity = meditationActivities.slice(0, 50);
 
         const result = {
             meditation: meditation || { dates: [], members: [] },
             practice: practice || { dates: [], members: [] },
             class: classData || { dates: [], members: [] },
-            recentActivity: combinedActivity, // Already limited to 50 by merge
+            recentActivity,
             syncedAt: meta?.syncedAt || null,
         };
 
