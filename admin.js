@@ -372,42 +372,68 @@ async function loadCacheStatus() {
 }
 
 // ========================================
+// Helpers
+// ========================================
+function getTeamShortName(teamName) {
+    const team = allTeams.find(t => t.name === teamName);
+    return team ? team.shortName : teamName;
+}
+
+// ========================================
 // Bulk Activity (Add Records Tab)
 // ========================================
 let membersByTeam = {}; // Cache for member data
 
 async function loadAddRecordsTab() {
     const container = $('teamCheckboxes');
+    container.innerHTML = '<p class="loading">載入成員中... Loading members...</p>';
 
     try {
-        // Load members grouped by team
+        // Ensure we have teams loaded
+        if (allTeams.length === 0) {
+            const teamData = await apiCall('/teams');
+            allTeams = teamData.teams || [];
+        }
+
+        // Load members
         const data = await apiCall('/members');
 
         // Group members by team
         membersByTeam = {};
-        const teams = ['晨絜家中隊', '明緯家中隊', '敬涵家中隊', '宗翰家中隊'];
-        teams.forEach(team => membersByTeam[team] = []);
+        // Initialize with all teams
+        allTeams.forEach(team => membersByTeam[team.name] = []);
 
+        // Sort members into teams
         data.members.forEach(member => {
-            if (membersByTeam[member.team]) {
-                membersByTeam[member.team].push(member.name);
+            // Only add if team exists in our known teams (or create entry if using fallback)
+            if (!membersByTeam[member.team]) {
+                membersByTeam[member.team] = [];
             }
+            membersByTeam[member.team].push(member.name);
         });
 
+        if (allTeams.length === 0) {
+            container.innerHTML = '<p class="error-msg">找不到隊伍 No teams found</p>';
+            return;
+        }
+
         // Render team checkboxes
-        container.innerHTML = teams.map(team => {
-            const members = membersByTeam[team] || [];
-            const shortName = getTeamShortName(team);
+        container.innerHTML = allTeams.map(team => {
+            const teamName = team.name;
+            const members = membersByTeam[teamName] || [];
+
+            if (members.length === 0) return ''; // Skip empty teams if desired, or show empty
+
             return `
                 <div class="team-group">
                     <div class="team-group-header">
-                        <span class="team-badge ${team}">${shortName}</span>
-                        <button type="button" class="select-all-btn" onclick="toggleTeam('${team}')">全選</button>
+                        <span class="team-badge ${teamName}" style="background-color: ${team.color || '#ccc'}">${team.shortName}</span>
+                        <button type="button" class="select-all-btn" onclick="toggleTeam('${teamName}')">全選</button>
                     </div>
                     <div class="member-checkboxes">
                         ${members.map(name => `
                             <div class="member-checkbox">
-                                <input type="checkbox" id="member_${name}" data-team="${team}" data-name="${name}">
+                                <input type="checkbox" id="member_${name}" data-team="${teamName}" data-name="${name}">
                                 <label for="member_${name}">${name}</label>
                             </div>
                         `).join('')}
@@ -724,6 +750,7 @@ async function populateTeamDropdowns() {
     try {
         const data = await apiCall('/teams');
         const teams = data.teams || [];
+        allTeams = teams; // Update global cache
 
         // Populate filter dropdown
         const filterTeam = $('filterTeam');

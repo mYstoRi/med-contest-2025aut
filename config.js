@@ -25,12 +25,8 @@ export const CONFIG = {
     REFRESH_INTERVAL: 5 * 60 * 1000,
 
     // Team configuration
-    TEAMS: [
-        { name: '晨絜家中隊', id: 1, color: 'team-1', shortName: '晨絜', colIndex: 3, memberColIndex: 2 },
-        { name: '明緯家中隊', id: 2, color: 'team-2', shortName: '明緯', colIndex: 6, memberColIndex: 5 },
-        { name: '敬涵家中隊', id: 3, color: 'team-3', shortName: '敬涵', colIndex: 9, memberColIndex: 8 },
-        { name: '宗翰家中隊', id: 4, color: 'team-4', shortName: '宗翰', colIndex: 12, memberColIndex: 11 },
-    ],
+    // Team configuration (DEPRECATED - loaded from API)
+    TEAMS: [],
 
     // Column indices in form responses (0-indexed)
     COLUMNS: {
