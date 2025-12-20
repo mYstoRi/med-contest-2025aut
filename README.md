@@ -8,7 +8,7 @@ A real-time visualization dashboard for tracking meditation competition progress
 - 📊 **Member Stats** - Individual progress tracking per team member
 - ✨ **Recent Activity Feed** - Live updates of meditation sessions
 - 📝 **Meditation Registration** - Form for members to log their sessions
-- 🔄 **Admin Panel** - Sync data, manage members and activities
+- 🔄 **Admin Panel** - Manage members and activities
 - 🌓 **Dark/Light Mode** - User-configurable theme
 
 ## Quick Start
@@ -21,49 +21,22 @@ cd med-contest
 npm install
 ```
 
-### 2. Create Google Sheet
-
-Create a Google Sheet with these tabs (exact names required):
-- `禪定登記` - Meditation records (columns: Team, Name, Total, Date1, Date2...)
-- `共修登記` - Practice records (row 0: points per session, row 1: dates)
-- `會館課登記` - Class attendance records
-- `表單回應 1` - Form responses (optional)
-
-**Make the sheet publicly viewable** (anyone with link can view).
-
-### 3. Configure Sheet ID
-
-Edit `config.js` and `api/admin/sync.js` to use your Sheet ID:
-
-```javascript
-// config.js
-SHEET_ID: 'YOUR_GOOGLE_SHEET_ID',
-
-// Also update in api/admin/sync.js
-const SHEET_ID = 'YOUR_GOOGLE_SHEET_ID';
-```
-
-You can find the Sheet ID in the URL:
-```
-https://docs.google.com/spreadsheets/d/[SHEET_ID]/edit
-```
-
-### 4. Deploy to Vercel
+### 2. Deploy to Vercel
 
 1. Push to GitHub
 2. Import to [Vercel](https://vercel.com)
 3. Add environment variables (see below)
 4. Deploy!
 
-### 5. Set Up Upstash Redis
+### 3. Set Up Upstash Redis
 
 The app uses Upstash Redis for data persistence:
 
 1. Go to [Upstash Console](https://console.upstash.com/)
-2. Create a new Redis database
+2. Create a new Redis database (free tier works fine)
 3. Copy the REST API credentials
 
-### 6. Configure Environment Variables
+### 4. Configure Environment Variables
 
 In Vercel dashboard → Settings → Environment Variables, add:
 
@@ -73,12 +46,23 @@ In Vercel dashboard → Settings → Environment Variables, add:
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token |
 | `ADMIN_PASSWORD` | Password for admin panel |
 
-### 7. Initial Data Sync
+### 5. Add Your Teams
 
-1. Go to `your-domain.vercel.app/admin.html`
-2. Login with your `ADMIN_PASSWORD`
-3. Go to "🔄 資料同步" tab
-4. Click "合併同步 Merge Sync" to import data from Google Sheets
+Edit `config.js` to set up your teams:
+
+```javascript
+TEAMS: [
+    { name: 'Team A', shortName: 'A', color: 'team-1' },
+    { name: 'Team B', shortName: 'B', color: 'team-2' },
+    // Add your teams...
+],
+```
+
+### 6. Start Using!
+
+1. Members submit meditation via `/register.html`
+2. Scores appear automatically on the dashboard
+3. Admin can manage members at `/admin.html`
 
 ## Local Development
 
@@ -108,15 +92,9 @@ TEAMS: [
 
 ### Point System
 
-Modify point values in `config.js`:
-
-```javascript
-POINTS: {
-    CLASS_PER_ATTENDANCE: 50,  // Points per class attendance
-},
-```
-
-Practice session points are defined per-date in the Google Sheet (row 0).
+- **Meditation**: 1 point per minute logged via the form
+- **Practice**: Points configurable per session in admin panel
+- **Class**: Fixed points per attendance (default: 50, configurable in `config.js`)
 
 ## Architecture
 
@@ -131,7 +109,6 @@ Practice session points are defined per-date in the Google Sheet (row 0).
 │   ├── meditation/
 │   │   └── submit.js   # POST - Submit meditation records
 │   ├── admin/
-│   │   ├── sync.js     # POST - Sync from Google Sheets
 │   │   ├── members.js  # CRUD - Member management
 │   │   └── activities.js # CRUD - Activity management
 │   └── _lib/
@@ -139,12 +116,14 @@ Practice session points are defined per-date in the Google Sheet (row 0).
 │       └── auth.js     # Admin authentication
 ```
 
-## Data Flow
+## How It Works
 
-1. **Initial Setup**: Admin syncs data from Google Sheets → Database
-2. **Member Submissions**: Form saves directly to database
-3. **Dashboard**: Reads from database (not sheets)
-4. **Updates**: Admin can re-sync to incorporate new Google Sheets data
+1. **Members register meditation** via `/register.html` form
+2. **Data is saved to database** (Upstash Redis)
+3. **Dashboard reads from database** and displays scores
+4. **Admin can manage** members and activities at `/admin.html`
+
+No external spreadsheets or forms needed!
 
 ## Tech Stack
 
@@ -152,6 +131,14 @@ Practice session points are defined per-date in the Google Sheet (row 0).
 - **Backend**: Vercel Serverless Functions
 - **Database**: Upstash Redis (via @vercel/kv)
 - **Deployment**: Vercel
+
+## Advanced: Google Sheets Import (Optional)
+
+If migrating from an existing Google Sheets setup, you can import data:
+
+1. Set up your Sheet with the correct format
+2. Update `SHEET_ID` in `api/admin/sync.js`
+3. Use Admin Panel → 資料同步 to import
 
 ## License
 
