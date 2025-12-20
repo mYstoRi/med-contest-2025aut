@@ -39,12 +39,24 @@ async function loadMembers() {
             const optgroup = document.createElement('optgroup');
             optgroup.label = teamName;
 
-            // Sort members alphabetically
-            const members = Array.from(teamMembers[teamName]).sort();
+            // Get the navigator name for this team (team shortName is navigator)
+            const teamConfig = CONFIG.TEAMS.find(t => t.name === teamName);
+            const navigatorName = teamConfig?.shortName || '';
+
+            // Sort members with navigator first, then alphabetically
+            const members = Array.from(teamMembers[teamName]).sort((a, b) => {
+                // Navigator goes first
+                if (a.includes(navigatorName)) return -1;
+                if (b.includes(navigatorName)) return 1;
+                // Then alphabetical
+                return a.localeCompare(b, 'zh-TW');
+            });
+
             for (const name of members) {
                 const option = document.createElement('option');
                 option.value = name;
-                option.textContent = name;
+                // Add star for navigator
+                option.textContent = name.includes(navigatorName) ? `⭐ ${name}` : name;
                 optgroup.appendChild(option);
             }
 
@@ -116,7 +128,7 @@ async function handleSubmit(event) {
         name: form.name.value,
         date: form.date.value,
         duration: parseInt(form.duration.value),
-        timeOfDay: form.querySelector('input[name="timeOfDay"]:checked')?.value,
+        timeOfDay: form.timeOfDay.value,
         thoughts: form.thoughts.value.trim(),
         shareConsent: form.querySelector('input[name="shareConsent"]:checked')?.value,
         timestamp: new Date().toISOString()

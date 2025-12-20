@@ -84,32 +84,12 @@
 
                 <!-- Time of Day -->
                 <div class="form-group">
-                    <label class="form-label">
-                        <span class="label-icon">🌅</span>
-                        什麼時候禪定的呢？ Time of Day
+                    <label for="timeOfDay" class="form-label">
+                        <span class="label-icon">🕐</span>
+                        什麼時候禪定的呢？ Time of Meditation
                     </label>
-                    <div class="radio-group">
-                        <label class="radio-option">
-                            <input type="radio" name="timeOfDay" value="早上" required>
-                            <span class="radio-label">🌅 早上 Morning</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="timeOfDay" value="中午">
-                            <span class="radio-label">☀️ 中午 Noon</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="timeOfDay" value="下午">
-                            <span class="radio-label">🌤️ 下午 Afternoon</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="timeOfDay" value="晚上">
-                            <span class="radio-label">🌙 晚上 Evening</span>
-                        </label>
-                        <label class="radio-option">
-                            <input type="radio" name="timeOfDay" value="深夜">
-                            <span class="radio-label">🌌 深夜 Late Night</span>
-                        </label>
-                    </div>
+                    <input type="time" id="timeOfDay" name="timeOfDay" required class="form-input">
+                    <div class="form-hint">請選擇禪定的時間 Select the time you meditated</div>
                 </div>
 
                 <!-- After Thoughts -->
@@ -131,14 +111,18 @@
                         <br><span class="label-subtitle">Would you like us to share your reflections in the
                             group?</span>
                     </label>
-                    <div class="radio-group horizontal">
+                    <div class="radio-group">
                         <label class="radio-option">
-                            <input type="radio" name="shareConsent" value="願意" required>
-                            <span class="radio-label">✅ 願意 Yes</span>
+                            <input type="radio" name="shareConsent" value="好！沒問題～" required>
+                            <span class="radio-label">😊 好！沒問題～</span>
                         </label>
                         <label class="radio-option">
-                            <input type="radio" name="shareConsent" value="不願意">
-                            <span class="radio-label">❌ 不願意 No</span>
+                            <input type="radio" name="shareConsent" value="可以，但我害羞想匿名">
+                            <span class="radio-label">🙈 可以，但我害羞想匿名</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="shareConsent" value="先不用沒關係">
+                            <span class="radio-label">🙅 先不用沒關係><< /span>
                         </label>
                     </div>
                 </div>
