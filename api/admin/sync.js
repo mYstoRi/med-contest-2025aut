@@ -1,5 +1,5 @@
 import { requireAuth } from '../_lib/auth.js';
-import { getCache, setDataPermanent, setCacheMeta, DATA_KEYS } from '../_lib/kv.js';
+import { getCache, setDataPermanent, setCacheMeta, deleteCache, DATA_KEYS } from '../_lib/kv.js';
 
 // Google Sheets configuration
 const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
@@ -244,8 +244,16 @@ export default async function handler(req, res) {
         console.log(`📊 Fetched: ${sheetData.meditation.members.length} meditation, ${sheetData.practice.members.length} practice, ${sheetData.class.members.length} class`);
 
         if (mode === 'overwrite') {
-            // Overwrite: Replace everything with sheet data
-            console.log('💾 Saving to database...');
+            // Overwrite: Clear everything first, then replace with sheet data
+            console.log('🗑️ Clearing all manual data caches...');
+            await Promise.all([
+                deleteCache('members:all'),
+                deleteCache('activities:all'),
+                deleteCache(DATA_KEYS.TEAMS),
+            ]);
+            console.log('✅ Manual caches cleared');
+
+            console.log('💾 Saving sheet data to database...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, sheetData.meditation),
                 setDataPermanent(DATA_KEYS.PRACTICE, sheetData.practice),
