@@ -18,16 +18,34 @@ async function loadMembers() {
 
         const apiData = await response.json();
 
-        // Build member list grouped by team
-        const teamMembers = {};
+        // Build member list grouped by team, with tier info
+        const teamMembers = {}; // { teamName: { memberName: { name, isNavigator } } }
 
         // Get members from meditation data
         if (apiData.meditation?.members) {
             for (const m of apiData.meditation.members) {
                 if (!teamMembers[m.team]) {
-                    teamMembers[m.team] = new Set();
+                    teamMembers[m.team] = {};
                 }
-                teamMembers[m.team].add(m.name);
+                if (!teamMembers[m.team][m.name]) {
+                    teamMembers[m.team][m.name] = { name: m.name, isNavigator: false };
+                }
+            }
+        }
+
+        // Get navigator info from class data (has tier column)
+        if (apiData.class?.members) {
+            for (const m of apiData.class.members) {
+                if (!teamMembers[m.team]) {
+                    teamMembers[m.team] = {};
+                }
+                if (!teamMembers[m.team][m.name]) {
+                    teamMembers[m.team][m.name] = { name: m.name, isNavigator: false };
+                }
+                // Mark as navigator if tier is '領航員'
+                if (m.tier === '領航員') {
+                    teamMembers[m.team][m.name].isNavigator = true;
+                }
             }
         }
 
@@ -39,29 +57,20 @@ async function loadMembers() {
             const optgroup = document.createElement('optgroup');
             optgroup.label = teamName;
 
-            // Get the navigator name for this team (team shortName is navigator)
-            const teamConfig = CONFIG.TEAMS.find(t => t.name === teamName);
-            const navigatorName = teamConfig?.shortName || '';
-
-            // Sort members with navigator first, then alphabetically
-            const members = Array.from(teamMembers[teamName]).sort((a, b) => {
-                // Check if name contains navigator name
-                const aIsNavigator = navigatorName && a.includes(navigatorName);
-                const bIsNavigator = navigatorName && b.includes(navigatorName);
-
-                // Navigator goes first
-                if (aIsNavigator && !bIsNavigator) return -1;
-                if (!aIsNavigator && bIsNavigator) return 1;
+            // Get all members for this team and sort: navigators first, then alphabetically
+            const members = Object.values(teamMembers[teamName]).sort((a, b) => {
+                // Navigators first
+                if (a.isNavigator && !b.isNavigator) return -1;
+                if (!a.isNavigator && b.isNavigator) return 1;
                 // Then alphabetical
-                return a.localeCompare(b, 'zh-TW');
+                return a.name.localeCompare(b.name, 'zh-TW');
             });
 
-            for (const name of members) {
+            for (const member of members) {
                 const option = document.createElement('option');
-                option.value = name;
+                option.value = member.name;
                 // Add star for navigator
-                const isNavigator = navigatorName && name.includes(navigatorName);
-                option.textContent = isNavigator ? `⭐ ${name}` : name;
+                option.textContent = member.isNavigator ? `⭐ ${member.name}` : member.name;
                 optgroup.appendChild(option);
             }
 

@@ -121,7 +121,7 @@ function parseClassSheet(csvText) {
 
         const team = row[0];
         const name = row[1];
-        // row[2] is tier (not used)
+        const tier = row[2] || ''; // tier column - '領航員' means navigator
         const total = parseFloat(row[3]) || 0;
         if (!team || !name) continue;
 
@@ -134,7 +134,7 @@ function parseClassSheet(csvText) {
             }
         }
 
-        members.push({ team, name, total, points: total * POINTS.CLASS_PER_ATTENDANCE, daily });
+        members.push({ team, name, tier, total, points: total * POINTS.CLASS_PER_ATTENDANCE, daily });
     }
 
     return { dates, members };
