@@ -484,18 +484,16 @@ async function loadData() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Initial load
-    loadData();
-
-    // Auto-refresh every 5 minutes
-    setInterval(loadData, CONFIG.REFRESH_INTERVAL);
-
-    // Initialize theme from localStorage or default to light
+    // Initialize theme first (sync, fast)
     initTheme();
-
-    // Initialize settings panel
     initSettings();
 
     console.log('🧘 Meditation Dashboard initialized');
     console.log(`Auto-refresh interval: ${CONFIG.REFRESH_INTERVAL / 1000 / 60} minutes`);
+
+    // Load data (async, may take time)
+    loadData();
+
+    // Auto-refresh every 5 minutes
+    setInterval(loadData, CONFIG.REFRESH_INTERVAL);
 });
