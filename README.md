@@ -11,67 +11,113 @@
 - 🔄 **管理後台** - 管理團隊、成員與活動
 - 🌓 **深色/淺色模式** - 可自訂主題
 
-## 快速開始
+---
 
-### 1. Fork & Clone
+## 🚀 完整部署指南（新手友善）
 
-```bash
-git clone https://github.com/YOUR-USERNAME/med-contest.git
-cd med-contest
-npm install
-```
+### 準備工作：建立必要帳號
 
-### 2. 部署到 Vercel
+在開始之前，你需要建立以下三個免費帳號：
 
-1. Push 到 GitHub
-2. 匯入至 [Vercel](https://vercel.com)
-3. 新增環境變數（見下方說明）
-4. 部署完成！
+| 平台 | 用途 | 註冊連結 |
+|------|------|----------|
+| **GitHub** | 程式碼託管 | [github.com/signup](https://github.com/signup) |
+| **Vercel** | 網站部署 | [vercel.com/signup](https://vercel.com/signup)（建議用 GitHub 帳號登入） |
+| **Upstash** | 資料庫 | [console.upstash.com](https://console.upstash.com/)（建議用 GitHub 帳號登入） |
 
-### 3. 設定 Upstash Redis
+> 💡 **提示**：三個平台都可以用 GitHub 帳號登入，這樣比較方便管理。
 
-本應用使用 Upstash Redis 進行資料儲存：
+---
+
+### 第一步：Fork 專案到你的 GitHub
+
+1. 確認你已登入 GitHub
+2. 前往本專案頁面
+3. 點擊右上角的 **Fork** 按鈕
+4. 在彈出視窗中，點擊 **Create fork**
+5. 等待幾秒鐘，專案會複製到你的帳號下
+
+> ✅ 成功後，你會看到網址變成 `github.com/你的帳號/專案名稱`
+
+---
+
+### 第二步：設定 Upstash 資料庫
 
 1. 前往 [Upstash Console](https://console.upstash.com/)
-2. 建立新的 Redis 資料庫（免費方案即可）
-3. 複製 REST API 憑證
+2. 點擊 **Create Database**
+3. 設定：
+   - **Name**：隨意取名，例如 `meditation-db`
+   - **Type**：選 **Regional**
+   - **Region**：選 **Asia Pacific (Taiwan)** 或最近的地區
+4. 點擊 **Create**
+5. 建立完成後，在 **REST API** 區塊找到：
+   - `UPSTASH_REDIS_REST_URL` - 複製這個網址
+   - `UPSTASH_REDIS_REST_TOKEN` - 點擊眼睛圖示顯示後複製
 
-### 4. 設定環境變數
+> ⚠️ **重要**：請把這兩個值暫時存到記事本，等下會用到。
 
-在 Vercel dashboard → Settings → Environment Variables 新增：
+---
 
-| 變數名稱 | 說明 |
-|----------|------|
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token |
-| `ADMIN_PASSWORD` | 管理後台密碼 |
+### 第三步：部署到 Vercel
 
-### 5. 初始設定
+1. 前往 [Vercel](https://vercel.com/) 並登入
+2. 點擊 **Add New** → **Project**
+3. 在 **Import Git Repository** 找到你剛剛 fork 的專案，點擊 **Import**
+4. 在 **Environment Variables** 區塊，新增以下三個變數：
 
-1. 前往 `/admin.html` 並登入
-2. **建立團隊**：管理團隊 → 新增團隊（名稱、簡稱、顏色）
-3. **新增成員**：活動管理 → 新增成員至團隊
-4. *（選擇性）* 從 Google Sheets 匯入資料（見下方說明）
+   | Name | Value |
+   |------|-------|
+   | `UPSTASH_REDIS_REST_URL` | 貼上剛才複製的 URL |
+   | `UPSTASH_REDIS_REST_TOKEN` | 貼上剛才複製的 Token |
+   | `ADMIN_PASSWORD` | 設定你的管理密碼（自己決定） |
 
-### 6. 開始使用！
+5. 點擊 **Deploy**
+6. 等待約 1-2 分鐘部署完成
 
-1. 成員透過 `/register.html` 登記禪定
-2. 積分自動顯示在儀表板
-3. 管理員在 `/admin.html` 管理資料
+> ✅ 部署成功後，你會看到一個預覽畫面和網址，例如 `你的專案.vercel.app`
 
-## 本地開發
+---
 
-```bash
-# 建立 .env.local 並設定環境變數
-echo "UPSTASH_REDIS_REST_URL=your_url" >> .env.local
-echo "UPSTASH_REDIS_REST_TOKEN=your_token" >> .env.local
-echo "ADMIN_PASSWORD=your_password" >> .env.local
+### 第四步：初始設定
 
-# 啟動開發伺服器
-npm run dev
-```
+1. 打開你的網站，前往 `/admin.html`（例如：`你的專案.vercel.app/admin.html`）
+2. 輸入剛才設定的 `ADMIN_PASSWORD` 登入
+3. **建立團隊**：
+   - 點擊「管理團隊」分頁
+   - 點擊「新增團隊」
+   - 填寫團隊名稱、簡稱、選擇顏色
+   - 重複以上步驟建立所有團隊
+4. **新增成員**：
+   - 點擊「活動管理」分頁
+   - 選擇類型「禪定」
+   - 選擇團隊、輸入成員名稱、設定日期與分鐘數
+   - 點擊新增
 
-## 管理後台功能
+> 🎉 **完成！** 現在成員可以透過 `/register.html` 登記禪定了！
+
+---
+
+## 📱 日常使用
+
+### 成員使用
+
+1. 打開網站首頁 `/register.html`
+2. 選擇自己的名字（或輸入新名字）
+3. 選擇禪定日期
+4. 輸入禪定分鐘數
+5. 點擊提交
+
+### 管理員使用
+
+前往 `/admin.html` 可以：
+- 查看所有活動記錄
+- 新增/編輯/刪除成員
+- 管理團隊
+- 從 Google Sheets 匯入資料（如有需要）
+
+---
+
+## 🔧 管理後台功能
 
 | 分頁 | 說明 |
 |------|------|
@@ -80,70 +126,76 @@ npm run dev
 | **成員列表** | 檢視所有成員、調整團隊、刪除 |
 | **管理團隊** | 建立/編輯/刪除團隊及自訂顏色 |
 
-### 同步模式
+### 同步模式說明
 
 - **合併 Merge**：新增 Sheets 資料，保留現有手動輸入資料
 - **覆蓋 Overwrite**：清除所有手動資料，重新從 Sheets 匯入
 
-## 積分系統
+---
 
-| 活動類型 | 積分 |
-|----------|------|
+## 📊 積分系統
+
+| 活動類型 | 積分計算 |
+|----------|----------|
 | 禪定 | 每分鐘 1 分 |
 | 共修 | 依 Sheets 設定每場次積分 |
 | 會館課 | 每次出席 50 分 |
 
-## 系統架構
+---
 
-```
-├── index.html          # 主儀表板
-├── member.html         # 成員詳細頁
-├── team.html           # 團隊詳細頁
-├── register.html       # 禪定登記表單
-├── admin.html          # 管理後台
-├── api/
-│   ├── data.js         # GET /api/data - 取得所有資料（僅從資料庫）
-│   ├── meditation/
-│   │   └── submit.js   # POST - 提交禪定記錄
-│   ├── admin/
-│   │   ├── teams.js    # CRUD - 團隊管理
-│   │   ├── members.js  # CRUD - 成員管理
-│   │   ├── activities.js # CRUD - 活動管理
-│   │   └── sync.js     # POST - 從 Google Sheets 匯入
-│   └── _lib/
-│       ├── kv.js       # Upstash Redis 封裝
-│       └── auth.js     # 管理員驗證
-```
+## 📥 Google Sheets 匯入（選擇性）
 
-## 運作原理
+如果你有現有的 Google Sheets 資料要匯入：
 
-1. **成員登記禪定** 透過 `/register.html` 表單
-2. **資料儲存至資料庫** (Upstash Redis)
-3. **儀表板從資料庫讀取** 並顯示積分
-4. **管理員可管理** 團隊、成員、活動於 `/admin.html`
+### 準備工作
 
-初始設定完成後，無需使用外部試算表或表單！
+確保你的 Sheet 包含以下工作表（分頁名稱需完全一致）：
+- `禪定登記` - 禪定資料
+- `共修登記` - 共修資料
+- `會館課登記` - 會館課資料
 
-## 技術架構
+### 設定 Sheet ID
 
-- **前端**：Vanilla HTML/CSS/JS + Vite
-- **後端**：Vercel Serverless Functions
-- **資料庫**：Upstash Redis（透過 @upstash/redis）
-- **部署**：Vercel
+1. 打開你的 Google Sheet
+2. 複製網址中的 ID（在 `/d/` 和 `/edit` 之間的那串字）
+   - 例如：`https://docs.google.com/spreadsheets/d/這裡是ID/edit`
+3. 編輯專案中的 `api/admin/sync.js`
+4. 找到 `SHEET_ID` 並替換成你的 ID
 
-## Google Sheets 匯入（選擇性）
+### 執行匯入
 
-若從現有 Google Sheets 設定遷移：
+1. 前往管理後台 → 資料同步
+2. 選擇同步模式：
+   - **合併**：保留現有資料，新增 Sheets 資料
+   - **覆蓋**：清空所有資料，重新匯入
+3. 點擊對應的同步按鈕
 
-1. 準備包含以下工作表的 Sheet：
-   - `禪定登記` - 禪定資料
-   - `共修登記` - 共修資料
-   - `會館課登記` - 會館課資料
-2. 更新 `api/admin/sync.js` 中的 `SHEET_ID` 為你的 Sheet ID
-3. 前往管理後台 → 資料同步
-4. 選擇 **合併 Merge**（保留現有）或 **覆蓋 Overwrite**（全新開始）
-5. 點擊同步按鈕
+---
 
-## 授權條款
+## ❓ 常見問題
 
-MIT
+### Q: 忘記管理密碼怎麼辦？
+A: 前往 Vercel 專案設定 → Environment Variables → 修改 `ADMIN_PASSWORD`，然後重新部署。
+
+### Q: 如何修改網站網址？
+A: 在 Vercel 專案設定 → Domains 可以設定自訂網域。
+
+### Q: 資料會遺失嗎？
+A: 資料儲存在 Upstash Redis 雲端資料庫，只要帳號還在就不會遺失。
+
+### Q: 可以多人同時使用嗎？
+A: 可以，系統支援多人同時登記禪定。
+
+---
+
+## 🔒 安全提醒
+
+- 請勿將 `ADMIN_PASSWORD` 分享給不信任的人
+- Upstash Token 請妥善保管
+- 建議定期從管理後台備份資料
+
+---
+
+## 📄 授權條款
+
+MIT License - 可自由使用、修改、分享
