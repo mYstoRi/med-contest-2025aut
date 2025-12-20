@@ -280,7 +280,11 @@ export default async function handler(req, res) {
             return result;
         };
 
-        const combinedActivity = mergePreSorted(syncedRecentActivity, manualRecentActivities);
+        // Combine synced and manual activities, then sort by date (newest first)
+        // Note: Synced data is sorted by timestamp, not date, so we need to re-sort
+        const allActivities = [...syncedRecentActivity, ...manualRecentActivities];
+        allActivities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+        const combinedActivity = allActivities.slice(0, 50);
 
         const result = {
             meditation: meditation || { dates: [], members: [] },
