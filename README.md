@@ -1,6 +1,6 @@
 # 禪定積分賽 | Meditation Competition Dashboard
 
-即時視覺化儀表板，用於追蹤團隊禪修競賽進度。專為佛學社禪修競賽設計。
+即時視覺化儀表板，用於追蹤團隊禪修競賽進度。專為領袖社禪修競賽設計。
 
 ## 功能特色
 
@@ -22,8 +22,8 @@
 | 平台 | 用途 | 註冊連結 |
 |------|------|----------|
 | **GitHub** | 程式碼託管 | [github.com/signup](https://github.com/signup) |
-| **Vercel** | 網站部署 | [vercel.com/signup](https://vercel.com/signup)（建議用 GitHub 帳號登入） |
-| **Upstash** | 資料庫 | [console.upstash.com](https://console.upstash.com/)（建議用 GitHub 帳號登入） |
+| **Vercel** | 網站部署 | [vercel.com/signup](https://vercel.com/signup)（可用 GitHub 或 Google 帳號登入） |
+| **Upstash** | 資料庫 | [console.upstash.com](https://console.upstash.com/)（可用 GitHub 或 Google 帳號登入） |
 
 > 💡 **提示**：三個平台都可以用 GitHub 帳號登入，這樣比較方便管理。
 
@@ -32,7 +32,7 @@
 ### 第一步：Fork 專案到你的 GitHub
 
 1. 確認你已登入 GitHub
-2. 前往本專案頁面
+2. 前往[本專案頁面](https://github.com/mYstoRi/med-contest-2025aut/tree/feature/meditation-form)
 3. 點擊右上角的 **Fork** 按鈕
 4. 在彈出視窗中，點擊 **Create fork**
 5. 等待幾秒鐘，專案會複製到你的帳號下
@@ -48,7 +48,7 @@
 3. 設定：
    - **Name**：隨意取名，例如 `meditation-db`
    - **Type**：選 **Regional**
-   - **Region**：選 **Asia Pacific (Taiwan)** 或最近的地區
+   - **Region**：選離台灣最近的地區(目前有東京&新加坡)
 4. 點擊 **Create**
 5. 建立完成後，在 **REST API** 區塊找到：
    - `UPSTASH_REDIS_REST_URL` - 複製這個網址
@@ -80,7 +80,7 @@
 
 ### 第四步：初始設定
 
-1. 打開你的網站，前往 `/admin.html`（例如：`你的專案.vercel.app/admin.html`）
+1. 打開你的網站，首頁最下方有管理員登入按鈕，點擊前往管理後台(或直接在網址後方加上 `/admin.html`)
 2. 輸入剛才設定的 `ADMIN_PASSWORD` 登入
 3. **建立團隊**：
    - 點擊「管理團隊」分頁
@@ -93,7 +93,7 @@
    - 選擇團隊、輸入成員名稱、設定日期與分鐘數
    - 點擊新增
 
-> 🎉 **完成！** 現在成員可以透過 `/register.html` 登記禪定了！
+> 🎉 **完成！** 現在成員可以透過首頁表單登記禪定了！
 
 ---
 
@@ -101,19 +101,17 @@
 
 ### 成員使用
 
-1. 打開網站首頁 `/register.html`
-2. 選擇自己的名字（或輸入新名字）
-3. 選擇禪定日期
-4. 輸入禪定分鐘數
-5. 點擊提交
+1. 打開網站首頁點擊上方的「登記禪定」按鈕
+2. 填入姓名、選擇日期、輸入分鐘數
+3. 點擊提交
 
 ### 管理員使用
 
-前往 `/admin.html` 可以：
+前往管理後台可以：
 - 查看所有活動記錄
 - 新增/編輯/刪除成員
 - 管理團隊
-- 從 Google Sheets 匯入資料（如有需要）
+- 從 Google Sheets 匯入資料（見最後面說明）
 
 ---
 
@@ -121,15 +119,11 @@
 
 | 分頁 | 說明 |
 |------|------|
-| **資料同步** | 從 Google Sheets 匯入（合併或覆蓋） |
-| **活動管理** | 新增/編輯禪定、共修、會館課記錄 |
-| **成員列表** | 檢視所有成員、調整團隊、刪除 |
-| **管理團隊** | 建立/編輯/刪除團隊及自訂顏色 |
-
-### 同步模式說明
-
-- **合併 Merge**：新增 Sheets 資料，保留現有手動輸入資料
-- **覆蓋 Overwrite**：清除所有手動資料，重新從 Sheets 匯入
+| **活動紀錄** | 查看所有活動記錄 |
+| **新增紀錄** | 新增/編輯禪定、共修、會館課記錄 |
+| **成員管理** | 檢視所有成員、調整團隊、刪除 |
+| **隊伍管理** | 建立/編輯/刪除團隊及自訂顏色 |
+| **資料同步** | 從 Google Sheets 匯入（不須使用） |
 
 ---
 
@@ -138,37 +132,21 @@
 | 活動類型 | 積分計算 |
 |----------|----------|
 | 禪定 | 每分鐘 1 分 |
-| 共修 | 依 Sheets 設定每場次積分 |
+| 共修 | 登記時輸入該次共修積分 |
 | 會館課 | 每次出席 50 分 |
 
 ---
 
 ## 📥 Google Sheets 匯入（選擇性）
 
-如果你有現有的 Google Sheets 資料要匯入：
+這個網站一開始是以Google Sheets為資料來源，但現在已經改為使用Redis資料庫，主要考量是設置的簡潔。
+用Google Sheets作為資料來源時，會需要用很精確的設定。
+請找清領 王俊皓 (dddd3083@gmail.com) 了解詳細設定方法。
+原則上不建議使用Google Sheets作為資料來源，需要新的功能推薦antigravity可以直接叫AI幫你寫。
 
-### 準備工作
+### Google Sheets 需求
 
-確保你的 Sheet 包含以下工作表（分頁名稱需完全一致）：
-- `禪定登記` - 禪定資料
-- `共修登記` - 共修資料
-- `會館課登記` - 會館課資料
-
-### 設定 Sheet ID
-
-1. 打開你的 Google Sheet
-2. 複製網址中的 ID（在 `/d/` 和 `/edit` 之間的那串字）
-   - 例如：`https://docs.google.com/spreadsheets/d/這裡是ID/edit`
-3. 編輯專案中的 `api/admin/sync.js`
-4. 找到 `SHEET_ID` 並替換成你的 ID
-
-### 執行匯入
-
-1. 前往管理後台 → 資料同步
-2. 選擇同步模式：
-   - **合併**：保留現有資料，新增 Sheets 資料
-   - **覆蓋**：清空所有資料，重新匯入
-3. 點擊對應的同步按鈕
+Google Sheets 需要被公開，請勿將隱私資訊放在上面。
 
 ---
 
