@@ -35,6 +35,66 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
+/**
+ * Parse activity date to milliseconds for comparison
+ * Handles formats: YYYY/MM/DD, YYYY-MM-DD, MM/DD
+ */
+function parseActivityDate(dateStr) {
+    if (!dateStr) return 0;
+    // Normalize separators
+    const normalized = dateStr.replace(/-/g, '/');
+    const parts = normalized.split('/');
+    let year, month, day;
+
+    if (parts.length === 3) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+    } else if (parts.length === 2) {
+        // MM/DD format - infer year
+        month = parseInt(parts[0], 10) || 1;
+        day = parseInt(parts[1], 10) || 1;
+        year = month < 6 ? 2026 : 2025;
+    } else {
+        return 0;
+    }
+    return new Date(year, month - 1, day).getTime();
+}
+
+/**
+ * Insert activity into sorted array (descending by date)
+ * Uses binary search for O(log n) insertion position
+ */
+function sortedInsert(activities, newActivity) {
+    const newDate = parseActivityDate(newActivity.date);
+
+    // Binary search for insertion point
+    let left = 0;
+    let right = activities.length;
+
+    while (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        const midDate = parseActivityDate(activities[mid].date);
+
+        if (midDate > newDate) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+
+    // Insert at the found position
+    activities.splice(left, 0, newActivity);
+    return activities;
+}
+
+/**
+ * Sort an array of activities by date descending (for initial load / sync)
+ */
+function sortActivitiesByDate(activities) {
+    return activities.sort((a, b) => parseActivityDate(b.date) - parseActivityDate(a.date));
+}
+
 // Google Sheets config
 const SHEET_ID = '1b2kQ_9Ry0Eu-BoZ-EcSxZxkbjIzBAAjjPGQZU9v9f_s';
 const SHEETS = {
@@ -302,7 +362,10 @@ export default async function handler(req, res) {
                 }
 
                 const activities = await getActivities();
-                activities.push(...newActivities);
+                // Insert each new activity in sorted order (newest first)
+                for (const newAct of sortActivitiesByDate(newActivities)) {
+                    sortedInsert(activities, newAct);
+                }
                 await saveActivities(activities);
 
                 // Invalidate cache
@@ -345,7 +408,7 @@ export default async function handler(req, res) {
             };
 
             const activities = await getActivities();
-            activities.push(activity);
+            sortedInsert(activities, activity);
             await saveActivities(activities);
 
             // Invalidate main data cache so next fetch will include this

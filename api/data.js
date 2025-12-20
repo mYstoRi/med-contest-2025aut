@@ -241,9 +241,10 @@ export default async function handler(req, res) {
         // Initialize structures if empty
         const syncedRecentActivity = meta?.recentActivity || [];
 
-        // Convert manual activities to recentActivity format and merge
+        // Convert manual meditation activities to recentActivity format
+        // Note: manualActivities is now stored pre-sorted (newest first)
         const manualRecentActivities = (manualActivities || [])
-            .filter(a => a.type === 'meditation') // Only meditation for activity feed
+            .filter(a => a.type === 'meditation')
             .map(a => ({
                 type: 'meditation',
                 name: a.member,
@@ -251,26 +252,41 @@ export default async function handler(req, res) {
                 date: a.date,
                 minutes: a.value,
                 points: a.value,
-                timestamp: a.createdAt || a.date, // Use creation time if available
+                timestamp: a.createdAt || a.date,
             }));
 
-        // Combine and sort by date (newest first)
-        const combinedActivity = [...syncedRecentActivity, ...manualRecentActivities];
-        combinedActivity.sort((a, b) => {
-            // Parse dates: format is typically YYYY/MM/DD or YYYY-MM-DD
+        // Merge two pre-sorted arrays (both newest first) using efficient merge
+        const mergePreSorted = (arr1, arr2) => {
             const parseDate = (dateStr) => {
                 if (!dateStr) return 0;
-                const normalized = dateStr.replace(/\//g, '-');
+                const normalized = (dateStr || '').replace(/\//g, '-');
                 return new Date(normalized).getTime() || 0;
             };
-            return parseDate(b.date) - parseDate(a.date);
-        });
+
+            const result = [];
+            let i = 0, j = 0;
+
+            while (i < arr1.length && j < arr2.length && result.length < 50) {
+                if (parseDate(arr1[i].date) >= parseDate(arr2[j].date)) {
+                    result.push(arr1[i++]);
+                } else {
+                    result.push(arr2[j++]);
+                }
+            }
+
+            while (i < arr1.length && result.length < 50) result.push(arr1[i++]);
+            while (j < arr2.length && result.length < 50) result.push(arr2[j++]);
+
+            return result;
+        };
+
+        const combinedActivity = mergePreSorted(syncedRecentActivity, manualRecentActivities);
 
         const result = {
             meditation: meditation || { dates: [], members: [] },
             practice: practice || { dates: [], members: [] },
             class: classData || { dates: [], members: [] },
-            recentActivity: combinedActivity.slice(0, 50), // Limit to 50
+            recentActivity: combinedActivity, // Already limited to 50 by merge
             syncedAt: meta?.syncedAt || null,
         };
 
