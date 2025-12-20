@@ -8,7 +8,7 @@ A real-time visualization dashboard for tracking meditation competition progress
 - 📊 **Member Stats** - Individual progress tracking per team member
 - ✨ **Recent Activity Feed** - Live updates of meditation sessions
 - 📝 **Meditation Registration** - Form for members to log their sessions
-- 🔄 **Admin Panel** - Manage members and activities
+- 🔄 **Admin Panel** - Manage teams, members, and activities
 - 🌓 **Dark/Light Mode** - User-configurable theme
 
 ## Quick Start
@@ -46,17 +46,18 @@ In Vercel dashboard → Settings → Environment Variables, add:
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token |
 | `ADMIN_PASSWORD` | Password for admin panel |
 
-### 5. Create Teams
-1. Log in to `/admin.html`
-2. Go to **Manage Teams** tab
-3. Create your teams (name, short name, color)
+### 5. Initial Setup
 
+1. Go to `/admin.html` and login
+2. **Create Teams**: Manage Teams tab → Add your teams (name, short name, color)
+3. **Add Members**: Manual Records tab → Add members to teams
+4. *(Optional)* Import from Google Sheets if migrating (see below)
 
 ### 6. Start Using!
 
 1. Members submit meditation via `/register.html`
 2. Scores appear automatically on the dashboard
-3. Admin can manage members at `/admin.html`
+3. Admin manages data at `/admin.html`
 
 ## Local Development
 
@@ -70,18 +71,27 @@ echo "ADMIN_PASSWORD=your_password" >> .env.local
 npm run dev
 ```
 
-## Customization
+## Admin Panel Features
 
-### Team Configuration
+| Tab | Description |
+|-----|-------------|
+| **Data Sync** | Import from Google Sheets (Merge or Overwrite) |
+| **Manual Records** | Add/edit meditation, practice, class activities |
+| **Members List** | View all members, reassign teams, delete |
+| **Manage Teams** | Create/edit/delete teams with custom colors |
 
-Teams are managed via the **Admin Panel** (`/admin.html`). You can add, edit, or delete teams dynamically without changing code.
+### Sync Modes
 
+- **Merge**: Adds new data from sheets, keeps existing manual entries
+- **Overwrite**: Clears ALL manual data and imports fresh from sheets
 
-### Point System
+## Point System
 
-- **Meditation**: 1 point per minute logged via the form
-- **Practice**: Points configurable per session in admin panel
-- **Class**: Fixed points per attendance (default: 50, configurable in `config.js`)
+| Activity | Points |
+|----------|--------|
+| Meditation | 1 point per minute |
+| Practice (共修) | Configurable per session in sheets |
+| Class (會館課) | 50 points per attendance |
 
 ## Architecture
 
@@ -92,12 +102,14 @@ Teams are managed via the **Admin Panel** (`/admin.html`). You can add, edit, or
 ├── register.html       # Meditation registration form
 ├── admin.html          # Admin dashboard
 ├── api/
-│   ├── data.js         # GET /api/data - Fetch all data
+│   ├── data.js         # GET /api/data - Fetch all data (database only)
 │   ├── meditation/
 │   │   └── submit.js   # POST - Submit meditation records
 │   ├── admin/
+│   │   ├── teams.js    # CRUD - Team management
 │   │   ├── members.js  # CRUD - Member management
-│   │   └── activities.js # CRUD - Activity management
+│   │   ├── activities.js # CRUD - Activity management
+│   │   └── sync.js     # POST - Import from Google Sheets
 │   └── _lib/
 │       ├── kv.js       # Upstash Redis wrapper
 │       └── auth.js     # Admin authentication
@@ -108,24 +120,29 @@ Teams are managed via the **Admin Panel** (`/admin.html`). You can add, edit, or
 1. **Members register meditation** via `/register.html` form
 2. **Data is saved to database** (Upstash Redis)
 3. **Dashboard reads from database** and displays scores
-4. **Admin can manage** members and activities at `/admin.html`
+4. **Admin can manage** teams, members, and activities at `/admin.html`
 
-No external spreadsheets or forms needed!
+No external spreadsheets or forms needed after initial setup!
 
 ## Tech Stack
 
 - **Frontend**: Vanilla HTML/CSS/JS with Vite
 - **Backend**: Vercel Serverless Functions
-- **Database**: Upstash Redis (via @vercel/kv)
+- **Database**: Upstash Redis (via @upstash/redis)
 - **Deployment**: Vercel
 
-## Advanced: Google Sheets Import (Optional)
+## Google Sheets Import (Optional)
 
-If migrating from an existing Google Sheets setup, you can import data:
+If migrating from an existing Google Sheets setup:
 
-1. Set up your Sheet with the correct format
-2. Update `SHEET_ID` in `api/admin/sync.js`
-3. Use Admin Panel → 資料同步 to import
+1. Prepare your Sheet with these tabs:
+   - `禪定登記` - Meditation data
+   - `共修登記` - Practice data  
+   - `會館課登記` - Class data
+2. Update `SHEET_ID` in `api/admin/sync.js` with your Sheet ID
+3. Go to Admin Panel → 資料同步
+4. Choose **Merge** (keep existing) or **Overwrite** (fresh start)
+5. Click sync button
 
 ## License
 
