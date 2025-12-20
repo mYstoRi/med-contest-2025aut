@@ -1,7 +1,6 @@
 // ========================================
 // Meditation Registration Form
 // ========================================
-import { CONFIG } from './config.js';
 import { initTheme, initSettings } from './utils.js';
 
 // ========================================
@@ -12,11 +11,17 @@ async function loadMembers() {
     if (!select) return;
 
     try {
-        // Fetch member list from API
-        const response = await fetch('/api/data');
-        if (!response.ok) throw new Error('Failed to fetch data');
+        // Fetch data and teams in parallel
+        const [dataResponse, teamsResponse] = await Promise.all([
+            fetch('/api/data'),
+            fetch('/api/admin/teams'),
+        ]);
 
-        const apiData = await response.json();
+        if (!dataResponse.ok) throw new Error('Failed to fetch data');
+
+        const apiData = await dataResponse.json();
+        const teamsData = teamsResponse.ok ? await teamsResponse.json() : { teams: [] };
+        const teams = teamsData.teams || [];
 
         // Build member list grouped by team, with tier info
         const teamMembers = {}; // { teamName: { memberName: { name, isNavigator } } }
@@ -49,8 +54,16 @@ async function loadMembers() {
             }
         }
 
-        // Sort teams by CONFIG order
-        const sortedTeams = CONFIG.TEAMS.map(t => t.name).filter(name => teamMembers[name]);
+        // Sort teams by API order (or use whatever teams have members)
+        const teamOrder = teams.map(t => t.name);
+        const sortedTeams = teamOrder.filter(name => teamMembers[name]);
+
+        // Add any teams not in API order (shouldn't happen, but fallback)
+        for (const name of Object.keys(teamMembers)) {
+            if (!sortedTeams.includes(name)) {
+                sortedTeams.push(name);
+            }
+        }
 
         // Create optgroups for each team
         for (const teamName of sortedTeams) {

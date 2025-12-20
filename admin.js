@@ -113,6 +113,7 @@ function showDashboard() {
 
     // Load initial data
     loadActivities();
+    populateTeamDropdowns();
 }
 
 // ========================================
@@ -686,6 +687,51 @@ async function editTeam(id) {
 // Make team functions available globally
 window.deleteTeam = deleteTeam;
 window.editTeam = editTeam;
+
+/**
+ * Populate all team dropdown selects with teams from API
+ */
+async function populateTeamDropdowns() {
+    try {
+        const data = await apiCall('/teams');
+        const teams = data.teams || [];
+
+        // Populate filter dropdown
+        const filterTeam = $('filterTeam');
+        if (filterTeam) {
+            // Keep the "All" option
+            const firstOption = filterTeam.querySelector('option');
+            filterTeam.innerHTML = '';
+            filterTeam.appendChild(firstOption);
+
+            for (const team of teams) {
+                const option = document.createElement('option');
+                option.value = team.name;
+                option.textContent = team.name;
+                filterTeam.appendChild(option);
+            }
+        }
+
+        // Populate member form dropdown
+        const memberTeam = $('memberTeam');
+        if (memberTeam) {
+            const firstOption = memberTeam.querySelector('option');
+            memberTeam.innerHTML = '';
+            memberTeam.appendChild(firstOption);
+
+            for (const team of teams) {
+                const option = document.createElement('option');
+                option.value = team.name;
+                option.textContent = team.name;
+                memberTeam.appendChild(option);
+            }
+        }
+
+        console.log('Populated team dropdowns with', teams.length, 'teams');
+    } catch (error) {
+        console.error('Failed to populate team dropdowns:', error);
+    }
+}
 
 // ========================================
 // Tab Navigation
