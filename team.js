@@ -332,15 +332,17 @@ function showError(message) {
 // ========================================
 
 // Calculate team data from API response (includes ALL members, not just navigators)
-function getTeamDataFromAPI(apiData, teamName) {
-    const team = CONFIG.TEAMS.find(t => t.name === teamName);
-    if (!team) return null;
+// Now works with dynamic teams from API
+function getTeamDataFromAPI(apiData, teamName, teamsFromAPI = []) {
+    // Try to find team in API teams first, then fallback to a basic structure
+    const apiTeam = teamsFromAPI.find(t => t.name === teamName);
 
     const teamData = {
-        name: team.name,
-        shortName: team.shortName,
-        color: team.color,
-        id: team.id,
+        name: teamName,
+        shortName: apiTeam?.shortName || teamName,
+        color: apiTeam?.color ? '' : 'team-1', // Will use inline color if from API
+        hexColor: apiTeam?.color || '#8b5cf6',
+        id: apiTeam?.id || 0,
         level: 1, // Default level
         totalScore: 0,
         members: []
@@ -508,25 +510,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         console.log('Fetching data from API...');
 
-        // Single API call to get all data
-        const response = await fetch('/api/data');
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+        // Fetch data and teams in parallel
+        const [dataResponse, teamsResponse] = await Promise.all([
+            fetch('/api/data'),
+            fetch('/api/admin/teams')
+        ]);
+
+        if (!dataResponse.ok) {
+            throw new Error(`API error: ${dataResponse.status}`);
         }
-        const apiData = await response.json();
+        const apiData = await dataResponse.json();
+
+        // Get teams from API
+        let teamsFromAPI = [];
+        if (teamsResponse.ok) {
+            const teamsData = await teamsResponse.json();
+            teamsFromAPI = teamsData.teams || [];
+        }
 
         console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
 
         // Get team data from API (includes ALL members)
-        const teamData = getTeamDataFromAPI(apiData, teamName);
-
-        if (!teamData) {
-            showError(`找不到隊伍: ${teamName}<br>Team not found`);
-            return;
-        }
+        const teamData = getTeamDataFromAPI(apiData, teamName, teamsFromAPI);
 
         // Build score breakdown from API
         const scoreBreakdown = getScoreBreakdownFromAPI(apiData);
+
+        // Add streaks to scoreBreakdown
+        scoreBreakdown.streaks = calculateTeamStreaks(apiData, teamName);
 
         // Update page title
         document.title = `${teamData.name} | 隊伍詳情`;
@@ -542,3 +553,102 @@ document.addEventListener('DOMContentLoaded', async () => {
         showError('無法載入資料 Failed to load data');
     }
 });
+
+// Helper to calculate streaks for a team's members
+function calculateTeamStreaks(apiData, teamName) {
+    const teamStreaks = {};
+    const memberActivity = {}; // { name: { date: { meditation, practice, class } } }
+
+    const ensureMember = (name, date) => {
+        if (!memberActivity[name]) memberActivity[name] = {};
+        if (!memberActivity[name][date]) memberActivity[name][date] = { meditation: false, practice: false, class: false };
+    };
+
+    // Process meditation
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            if (m.team === teamName && m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].meditation = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process practice
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            if (m.team === teamName && m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].practice = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process class
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            if (m.team === teamName && m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].class = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate streaks for each member
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const calcStreak = (dateStrs) => {
+        if (dateStrs.length === 0) return 0;
+
+        const sortedDates = dateStrs
+            .map(d => {
+                const parts = d.split('/');
+                const month = parseInt(parts[0]) || 1;
+                const day = parseInt(parts[1]) || 1;
+                const year = month < 6 ? 2026 : 2025;
+                return { str: d, date: new Date(year, month - 1, day) };
+            })
+            .sort((a, b) => a.date - b.date);
+
+        const lastDate = new Date(sortedDates[sortedDates.length - 1].date);
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate < yesterday) return 0;
+
+        let streak = 1;
+        for (let i = sortedDates.length - 2; i >= 0; i--) {
+            const curr = new Date(sortedDates[i + 1].date);
+            const prev = new Date(sortedDates[i].date);
+            curr.setHours(0, 0, 0, 0);
+            prev.setHours(0, 0, 0, 0);
+            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+            if (diffDays === 1) streak++;
+            else break;
+        }
+        return streak;
+    };
+
+    for (const [name, days] of Object.entries(memberActivity)) {
+        const soloD = Object.keys(days).filter(d => days[d].meditation);
+        const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
+        teamStreaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
+    }
+
+    return teamStreaks;
+}
