@@ -63,143 +63,83 @@ const CLASS_SHEET = '會館課登記';
 const CLASS_POINTS_PER_ATTENDANCE = 50;
 
 /**
- * Get members from Google Sheets (direct fetch)
- * Calculates meditation and practice totals by summing daily values
+ * Get members from database (synced data)
+ * Uses the same data that was synced via /api/admin/sync
  */
-async function getMembersFromSheetsCache() {
-    const membersMap = new Map(); // Use Map to dedupe by name+team
+async function getMembersFromDatabase() {
+    const membersMap = new Map();
 
     try {
-        // Fetch meditation, practice, and class sheets
-        const [medResp, pracResp, classResp] = await Promise.all([
-            fetch(getSheetUrl(MEDITATION_SHEET)),
-            fetch(getSheetUrl(PRACTICE_SHEET)),
-            fetch(getSheetUrl(CLASS_SHEET)),
+        // Get synced data from database (same keys as sync.js uses)
+        const [meditation, practice, classData] = await Promise.all([
+            getCache('data:meditation'),
+            getCache('data:practice'),
+            getCache('data:class'),
         ]);
 
-        const [medCSV, pracCSV, classCSV] = await Promise.all([
-            medResp.ok ? medResp.text() : '',
-            pracResp.ok ? pracResp.text() : '',
-            classResp.ok ? classResp.text() : '',
-        ]);
-
-        // Parse meditation sheet - EXACT LOGIC FROM team.js
-        // Row 0 has dates header, data starts from row 1
-        // Sum all daily values (columns 3 onwards)
-        if (medCSV) {
-            const lines = medCSV.split('\n').map(parseCSVLine);
-
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-
-                const team = row[0], name = row[1];
-                if (!team || !name) continue;
-
-                // Sum all daily values (columns 3 onwards) - same as team.js
-                let totalMinutes = 0;
-                for (let j = 3; j < row.length; j++) {
-                    totalMinutes += parseFloat(row[j]) || 0;
-                }
-
-                const key = `${team}:${name}`;
+        // Parse meditation data
+        if (meditation?.members) {
+            for (const m of meditation.members) {
+                const key = `${m.team}:${m.name}`;
                 if (!membersMap.has(key)) {
                     membersMap.set(key, {
-                        id: `sheets_${team}_${name}`,
-                        name,
-                        team,
-                        meditationTotal: totalMinutes,
+                        id: `db_${m.team}_${m.name}`,
+                        name: m.name,
+                        team: m.team,
+                        meditationTotal: m.total || 0,
                         practiceTotal: 0,
                         classTotal: 0,
-                        source: 'sheets'
+                        source: 'database'
                     });
                 } else {
-                    membersMap.get(key).meditationTotal = totalMinutes;
+                    membersMap.get(key).meditationTotal = m.total || 0;
                 }
             }
         }
 
-
-        // Parse practice sheet - EXACT LOGIC FROM team.js
-        // Row 0 has the points per session for each date column
-        // Row 1 has dates, data starts from row 2
-        if (pracCSV) {
-            const lines = pracCSV.split('\n').map(parseCSVLine);
-
-            // Row 0 has points per session (slice from col 3)
-            const pointsPerSession = lines[0] ? lines[0].slice(3).map(p => parseFloat(p) || 0) : [];
-
-            // Data starts from row 2
-            for (let i = 2; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-
-                const team = row[0], name = row[1];
-                if (!team || !name) continue;
-
-                // Calculate points: attendance (1) * points per session
-                let totalPoints = 0;
-                for (let j = 3; j < row.length && (j - 3) < pointsPerSession.length; j++) {
-                    const attended = parseFloat(row[j]) || 0;
-                    if (attended > 0) {
-                        totalPoints += pointsPerSession[j - 3] || 0;
-                    }
-                }
-
-                const key = `${team}:${name}`;
-                if (membersMap.has(key)) {
-                    membersMap.get(key).practiceTotal = totalPoints;
-                } else {
+        // Parse practice data
+        if (practice?.members) {
+            for (const m of practice.members) {
+                const key = `${m.team}:${m.name}`;
+                if (!membersMap.has(key)) {
                     membersMap.set(key, {
-                        id: `sheets_${team}_${name}`,
-                        name,
-                        team,
+                        id: `db_${m.team}_${m.name}`,
+                        name: m.name,
+                        team: m.team,
                         meditationTotal: 0,
-                        practiceTotal: totalPoints,
+                        practiceTotal: m.total || 0,
                         classTotal: 0,
-                        source: 'sheets'
+                        source: 'database'
                     });
+                } else {
+                    membersMap.get(key).practiceTotal = m.total || 0;
                 }
             }
         }
 
-        // Parse class sheet - EXACT LOGIC FROM team.js
-        // Row 0 = dates header, data from row 1
-        // Column 0 = team, 1 = name, 2 = tier, 3 = total count
-        if (classCSV) {
-            const lines = classCSV.split('\n').map(parseCSVLine);
-
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-
-                const team = row[0], name = row[1], tier = row[2];
-                // Column 3 has the total count
-                const totalClasses = parseFloat(row[3]) || 0;
-                if (!team || !name) continue;
-
-                const classPoints = totalClasses * CLASS_POINTS_PER_ATTENDANCE;
-
-                const key = `${team}:${name}`;
-                if (membersMap.has(key)) {
-                    membersMap.get(key).classTotal = classPoints;
-                    membersMap.get(key).tier = tier || '';
-                } else {
+        // Parse class data (has tier info)
+        if (classData?.members) {
+            for (const m of classData.members) {
+                const key = `${m.team}:${m.name}`;
+                if (!membersMap.has(key)) {
                     membersMap.set(key, {
-                        id: `sheets_${team}_${name}`,
-                        name,
-                        team,
-                        tier: tier || '',
+                        id: `db_${m.team}_${m.name}`,
+                        name: m.name,
+                        team: m.team,
+                        tier: m.tier || '',
                         meditationTotal: 0,
                         practiceTotal: 0,
-                        classTotal: classPoints,
-                        source: 'sheets'
+                        classTotal: m.points || 0,
+                        source: 'database'
                     });
+                } else {
+                    membersMap.get(key).classTotal = m.points || 0;
+                    membersMap.get(key).tier = m.tier || '';
                 }
             }
         }
     } catch (error) {
-        console.error('Failed to get members from Sheets:', error);
+        console.error('Failed to get members from database:', error);
     }
 
     return Array.from(membersMap.values());
@@ -223,13 +163,13 @@ export default async function handler(req, res) {
         if (!isAuthed) return;
     }
 
-    // GET /api/admin/members - Get all members (from Sheets + manually added)
+    // GET /api/admin/members - Get all members (from database + manually added)
     if (req.method === 'GET') {
         try {
             const manualMembers = await getMembers();
-            const sheetsMembers = await getMembersFromSheetsCache();
+            const dbMembers = await getMembersFromDatabase();
 
-            // Merge: dedupe by name+team, prefer manual over sheets
+            // Merge: dedupe by name+team, prefer manual over database
             const seenKeys = new Set();
             const allMembers = [];
 
@@ -242,8 +182,8 @@ export default async function handler(req, res) {
                 }
             }
 
-            // Then sheets
-            for (const m of sheetsMembers) {
+            // Then database
+            for (const m of dbMembers) {
                 const key = `${m.team}:${m.name}`;
                 if (!seenKeys.has(key)) {
                     seenKeys.add(key);
@@ -270,7 +210,7 @@ export default async function handler(req, res) {
 
             return res.status(200).json({
                 count: filtered.length,
-                totalSheets: sheetsMembers.length,
+                totalDatabase: dbMembers.length,
                 totalManual: manualMembers.length,
                 members: filtered
             });
