@@ -45,9 +45,13 @@ async function loadMembers() {
 
             // Sort members with navigator first, then alphabetically
             const members = Array.from(teamMembers[teamName]).sort((a, b) => {
+                // Check if name contains navigator name
+                const aIsNavigator = navigatorName && a.includes(navigatorName);
+                const bIsNavigator = navigatorName && b.includes(navigatorName);
+
                 // Navigator goes first
-                if (a.includes(navigatorName)) return -1;
-                if (b.includes(navigatorName)) return 1;
+                if (aIsNavigator && !bIsNavigator) return -1;
+                if (!aIsNavigator && bIsNavigator) return 1;
                 // Then alphabetical
                 return a.localeCompare(b, 'zh-TW');
             });
@@ -56,7 +60,8 @@ async function loadMembers() {
                 const option = document.createElement('option');
                 option.value = name;
                 // Add star for navigator
-                option.textContent = name.includes(navigatorName) ? `⭐ ${name}` : name;
+                const isNavigator = navigatorName && name.includes(navigatorName);
+                option.textContent = isNavigator ? `⭐ ${name}` : name;
                 optgroup.appendChild(option);
             }
 

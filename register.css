@@ -165,7 +165,7 @@
     font-size: 1.1rem;
     font-weight: 600;
     font-family: inherit;
-    color: #1a1a2e;
+    color: white;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border: none;
     border-radius: 12px;
@@ -362,4 +362,8 @@
 
 [data-theme="light"] .radio-option:hover {
     background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .submit-btn {
+    color: #1a1a2e;
 }
