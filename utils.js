@@ -67,26 +67,6 @@ export function formatNumber(num) {
 }
 
 // ========================================
-// Sheet Fetching
-// ========================================
-
-/**
- * Get the URL for fetching a sheet as CSV
- */
-export function getSheetUrl(sheetName) {
-    return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-}
-
-/**
- * Fetch sheet data as text
- */
-export async function fetchSheetData(sheetName) {
-    const response = await fetch(getSheetUrl(sheetName));
-    if (!response.ok) throw new Error(`Failed to fetch ${sheetName}`);
-    return response.text();
-}
-
-// ========================================
 // Streak Calculation
 // ========================================
 
@@ -208,18 +188,20 @@ export function calculateDualStreaks(meditationDates, practiceDates = [], classD
  * Initialize theme from localStorage
  */
 export function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    console.log('🎨 Theme initialized:', savedTheme);
 }
 
 /**
  * Toggle between light and dark theme
  */
 export function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    console.log('🎨 Theme toggled to:', newTheme);
 }
 
 /**

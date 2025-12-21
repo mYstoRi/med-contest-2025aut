@@ -1,387 +1,22 @@
 // ========================================
 // Imports from Shared Modules
 // ========================================
-import { CONFIG, getTeamConfig } from './config.js';
+// import { CONFIG } from './config.js'; // REMOVED
 import {
-    parseCSVLine,
-    parseDate,
     cleanName,
     formatNumber,
     formatDate,
-    getSheetUrl,
     initTheme,
     initSettings
 } from './utils.js';
 
-// ========================================
-// Utility Functions (Page-specific)
-// ========================================
-function parseCSV(csvText) {
-    const lines = csvText.split('\n');
-    const result = [];
+// Team data from API (loaded dynamically)
+let teamsFromAPI = [];
+let teamColorMap = {}; // { teamName: hexColor }
 
-    for (let i = 1; i < lines.length; i++) { // Skip header row
-        const line = lines[i].trim();
-        if (!line) continue;
-        result.push(parseCSVLine(line));
-    }
-
-    return result;
-}
-
-
-// ========================================
-// Data Fetching
-// ========================================
-async function fetchTotalsData() {
-    try {
-        const response = await fetch(CONFIG.TOTALS_CSV_URL);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status} `);
-        }
-        const csvText = await response.text();
-        return parseTotalsCSV(csvText);
-    } catch (error) {
-        console.error('Error fetching totals data:', error);
-        throw error;
-    }
-}
-
-function parseTotalsCSV(csvText) {
-    const lines = csvText.split('\n').map(line => {
-        // Parse CSV line
-        const values = [];
-        let current = '';
-        let inQuotes = false;
-        for (const char of line) {
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                values.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        values.push(current.trim());
-        return values;
-    });
-
-    const result = {
-        teamScores: {},
-        teamMembers: {},
-        topMeditator: { name: '--', points: 0 }
-    };
-
-    // Initialize
-    for (const team of CONFIG.TEAMS) {
-        result.teamScores[team.name] = 0;
-        result.teamMembers[team.name] = [];
-    }
-
-    // Parse team totals (row 4: 累計總分)
-    if (lines[3]) {
-        for (const team of CONFIG.TEAMS) {
-            const score = parseFloat(lines[3][team.colIndex]) || 0;
-            result.teamScores[team.name] = score;
-        }
-    }
-
-    // Parse team members (rows 7+: 領航員 data)
-    for (let i = 6; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 12) continue;
-
-        for (const team of CONFIG.TEAMS) {
-            const name = row[team.memberColIndex];
-            const points = parseFloat(row[team.memberColIndex + 1]) || 0;
-
-            if (name && name.trim()) {
-                result.teamMembers[team.name].push({ name: name.trim(), points });
-
-                // Track top meditator
-                if (points > result.topMeditator.points) {
-                    result.topMeditator = { name: name.trim(), points, team: team.name };
-                }
-            }
-        }
-    }
-
-    return result;
-}
-
-async function fetchFormResponsesData() {
-    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.FORM_RESPONSES_SHEET)}`;
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const csvText = await response.text();
-        return parseCSV(csvText);
-    } catch (error) {
-        console.error('Error fetching form responses:', error);
-        throw error;
-    }
-}
-
-// Fetch meditation sheet to build name -> team mapping
-async function fetchMemberTeams() {
-    const url = getSheetUrl(CONFIG.SHEETS.MEDITATION);
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const csvText = await response.text();
-        const lines = csvText.split('\n');
-        const memberTeams = {}; // name -> team
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            // Parse CSV line
-            const values = [];
-            let current = '';
-            let inQuotes = false;
-            for (const char of line) {
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    values.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            values.push(current.trim());
-
-            // Column 0 = team, Column 1 = name
-            const teamName = values[0];
-            const memberName = values[1];
-
-            if (teamName && memberName) {
-                memberTeams[memberName] = teamName;
-            }
-        }
-
-        console.log('Member teams mapping:', Object.keys(memberTeams).length, 'members');
-        return memberTeams;
-    } catch (error) {
-        console.error('Error fetching member teams:', error);
-        return {};
-    }
-}
-
-// Fetch all sheets and calculate dual streaks: solo (meditation only) and activity (any)
-async function fetchMemberStreaks() {
-    try {
-        const [medResp, pracResp, classResp] = await Promise.all([
-            fetch(getSheetUrl(CONFIG.SHEETS.MEDITATION)),
-            fetch(getSheetUrl(CONFIG.SHEETS.PRACTICE)),
-            fetch(getSheetUrl(CONFIG.SHEETS.CLASS))
-        ]);
-
-
-        const [medCSV, pracCSV, classCSV] = await Promise.all([
-            medResp.ok ? medResp.text() : '',
-            pracResp.ok ? pracResp.text() : '',
-            classResp.ok ? classResp.text() : ''
-        ]);
-
-        // Build member activity data
-        const memberActivity = {}; // name -> { dateStr -> { meditation, practice, class } }
-
-        const ensureMember = (name, dateStr) => {
-            if (!memberActivity[name]) memberActivity[name] = {};
-            if (!memberActivity[name][dateStr]) memberActivity[name][dateStr] = {};
-        };
-
-        // Parse meditation
-        if (medCSV) {
-            const lines = medCSV.split('\n').map(parseCSVLine);
-            const dates = lines[0]?.slice(3) || [];
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-                const name = row[1];
-                if (!name) continue;
-                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                    const dateStr = dates[j - 3];
-                    if (!dateStr || !dateStr.includes('/')) continue; // Skip empty/invalid dates
-                    if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dateStr);
-                        memberActivity[name][dateStr].meditation = true;
-                    }
-                }
-            }
-        }
-
-        // Parse practice
-        if (pracCSV) {
-            const lines = pracCSV.split('\n').map(parseCSVLine);
-            const dates = lines[1]?.slice(3) || [];
-            for (let i = 2; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 4) continue;
-                const name = row[1];
-                if (!name) continue;
-                for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                    const dateStr = dates[j - 3];
-                    if (!dateStr || !dateStr.includes('/')) continue;
-                    if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dateStr);
-                        memberActivity[name][dateStr].practice = true;
-                    }
-                }
-            }
-        }
-
-        // Parse class
-        if (classCSV) {
-            const lines = classCSV.split('\n').map(parseCSVLine);
-            const dates = lines[0]?.slice(4) || [];
-            for (let i = 1; i < lines.length; i++) {
-                const row = lines[i];
-                if (!row || row.length < 5) continue;
-                const name = row[1];
-                if (!name) continue;
-                for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
-                    const dateStr = dates[j - 4];
-                    if (!dateStr || !dateStr.includes('/')) continue;
-                    if ((parseFloat(row[j]) || 0) > 0) {
-                        ensureMember(name, dateStr);
-                        memberActivity[name][dateStr].class = true;
-                    }
-                }
-            }
-        }
-
-        // Calculate streaks
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-
-        const calcStreak = (dateStrs) => {
-            if (dateStrs.length === 0) return 0;
-            const sorted = dateStrs.map(d => ({ str: d, date: parseDate(d) })).sort((a, b) => a.date - b.date);
-            const last = new Date(sorted[sorted.length - 1].date); last.setHours(0, 0, 0, 0);
-            if (last < yesterday) return 0;
-            let streak = 1;
-            for (let i = sorted.length - 2; i >= 0; i--) {
-                const curr = new Date(sorted[i + 1].date); curr.setHours(0, 0, 0, 0);
-                const prev = new Date(sorted[i].date); prev.setHours(0, 0, 0, 0);
-                if ((curr - prev) / (1000 * 60 * 60 * 24) === 1) streak++;
-                else break;
-            }
-            return streak;
-        };
-
-        const streaks = {};
-        for (const [name, days] of Object.entries(memberActivity)) {
-            const soloD = Object.keys(days).filter(d => days[d].meditation);
-            const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
-            streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
-        }
-
-        return streaks;
-    } catch (error) {
-        console.error('Error fetching member streaks:', error);
-        return {};
-    }
-}
-
-// ========================================
-// Data Processing
-// ========================================
-function processFormResponses(rows, memberTeams = {}, memberStreaks = {}) {
-    let totalMinutes = 0;
-    let totalSessions = 0;
-    let longestSession = { minutes: 0, name: '' };
-    const recentActivities = [];
-
-    // Process each row for activity feed and stats
-    for (const row of rows) {
-        const rawName = row[CONFIG.COLUMNS.NAME] || '';
-        const name = cleanName(rawName);
-        // Use memberTeams mapping from meditation sheet (more accurate)
-        const team = memberTeams[name] || row[CONFIG.COLUMNS.TEAM] || '';
-        const minutes = parseFloat(row[CONFIG.COLUMNS.MINUTES]) || 0;
-        // Points = minutes (1 minute = 1 point)
-        const points = minutes;
-        const date = row[CONFIG.COLUMNS.DATE] || '';
-        const timestamp = row[CONFIG.COLUMNS.TIMESTAMP] || '';
-
-        if (!name) continue;
-
-        // Find matching team config
-        const teamConfig = getTeamConfig(team);
-
-        // Stats
-        totalMinutes += minutes;
-        totalSessions++;
-
-        if (minutes > longestSession.minutes) {
-            longestSession = { minutes, name };
-        }
-
-        // Get streaks from pre-calculated data
-        const streakData = memberStreaks[name] || { solo: 0, activity: 0 };
-
-        // Recent activity
-        recentActivities.push({
-            name,
-            team: teamConfig.name,
-            minutes,
-            points,
-            date,
-            timestamp,
-            soloStreak: streakData.solo,
-            activityStreak: streakData.activity
-        });
-    }
-
-    // Sort activities by timestamp (newest first)
-    recentActivities.sort((a, b) => {
-        // Parse Chinese timestamp format: "2025/11/3 下午3:18:21"
-        const parseTimestamp = (ts) => {
-            if (!ts) return 0;
-            try {
-                // Format: "2025/11/3 下午3:18:21" or "2025/11/3 上午10:18:21"
-                const parts = ts.split(' ');
-                if (parts.length < 2) return 0;
-
-                const datePart = parts[0]; // "2025/11/3"
-                let timePart = parts[1];   // "下午3:18:21" or "上午10:18:21"
-
-                // Extract AM/PM and time
-                const isPM = timePart.includes('下午');
-                timePart = timePart.replace('下午', '').replace('上午', '');
-
-                const [hours, minutes, seconds] = timePart.split(':').map(Number);
-                let hour24 = hours;
-
-                if (isPM && hours < 12) hour24 = hours + 12;
-                if (!isPM && hours === 12) hour24 = 0;
-
-                const [year, month, day] = datePart.split('/').map(Number);
-
-                return new Date(year, month - 1, day, hour24, minutes || 0, seconds || 0).getTime();
-            } catch (e) {
-                return 0;
-            }
-        };
-        return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
-    });
-
-    return {
-        totalMinutes,
-        totalSessions,
-        longestSession,
-        recentActivities: recentActivities.slice(0, 20), // Last 20 activities
-    };
+// Get team color (uses API data or fallback)
+function getTeamColor(teamName) {
+    return teamColorMap[teamName] || '#8b5cf6'; // Default purple
 }
 
 // ========================================
@@ -399,20 +34,20 @@ function renderTeamBars(teamScores) {
     const sortedTeams = Object.entries(teamScores)
         .sort((a, b) => b[1] - a[1]);
 
-    container.innerHTML = sortedTeams.map(([teamName, score]) => {
-        const config = getTeamConfig(teamName);
+    container.innerHTML = sortedTeams.map(([teamName, score], idx) => {
+        const color = getTeamColor(teamName);
         const percentage = Math.max((score / maxScore) * 100, 5); // Minimum 5% for visibility
         const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;
 
         return `
       <div class="team-bar-container">
         <div class="team-bar-wrapper">
-          <div class="particles" id="particles-${config.id}"></div>
-          <div class="team-bar ${config.color}" style="height: ${percentage}%">
+          <div class="particles" id="particles-${idx}"></div>
+          <div class="team-bar" style="height: ${percentage}%; background: linear-gradient(to top, ${color}, ${adjustColor(color, 40)}); box-shadow: 0 0 30px ${color}40;">
             <span class="team-bar-score">${formatNumber(Math.round(score))}</span>
           </div>
         </div>
-        <a href="${teamUrl}" class="team-name ${config.color}" style="text-decoration: none; cursor: pointer;">
+        <a href="${teamUrl}" class="team-name" style="color: ${color}; text-decoration: none; cursor: pointer;">
           ${teamName}
         </a>
       </div>
@@ -421,11 +56,20 @@ function renderTeamBars(teamScores) {
 
     // Add particle effects
     setTimeout(() => {
-        sortedTeams.forEach(([teamName]) => {
-            const config = getTeamConfig(teamName);
-            addParticles(`particles-${config.id}`);
+        sortedTeams.forEach(([teamName], idx) => {
+            addParticles(`particles-${idx}`);
         });
     }, 100);
+}
+
+// Adjust color brightness
+function adjustColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
 }
 
 function addParticles(containerId) {
@@ -486,7 +130,7 @@ function renderLeaderboard(teamScores) {
     const medals = ['🥇', '🥈', '🥉', ''];
 
     container.innerHTML = sortedTeams.map(([teamName, score], index) => {
-        const config = getTeamConfig(teamName);
+        const color = getTeamColor(teamName);
         const rank = index + 1;
         const diff = topScore - score;
         const diffText = rank === 1 ? '領先中 Leading!' : `落後 ${formatNumber(Math.round(diff))} 分`;
@@ -498,10 +142,10 @@ function renderLeaderboard(teamScores) {
           ${medals[index] ? `<span class="rank-medal">${medals[index]}</span>` : rank}
         </div>
         <div class="team-info">
-          <div class="team-info-name ${config.color}-text">${teamName}</div>
+          <div class="team-info-name" style="color: ${color};">${teamName}</div>
           <div class="team-info-diff">${diffText}</div>
         </div>
-        <div class="team-score ${config.color}-text">${formatNumber(Math.round(score))}</div>
+        <div class="team-score" style="color: ${color};">${formatNumber(Math.round(score))}</div>
       </a>
     `;
     }).join('');
@@ -517,7 +161,7 @@ function renderActivityFeed(activities) {
     }
 
     container.innerHTML = activities.map(activity => {
-        const config = getTeamConfig(activity.team);
+        const color = getTeamColor(activity.team);
         // Dual streak badges
         const activityBadge = activity.activityStreak > 0 ? `<span class="activity-streak act" title="${activity.activityStreak} 天精進連續">🔥${activity.activityStreak}</span>` : '';
         const soloBadge = activity.soloStreak > 0 ? `<span class="activity-streak solo" title="${activity.soloStreak} 天獨修連續">🧘${activity.soloStreak}</span>` : '';
@@ -527,13 +171,13 @@ function renderActivityFeed(activities) {
             ? `<a href="${memberUrl}" class="activity-name-link">${activity.name}</a>`
             : '匿名';
         return `
-      <div class="activity-item ${config.color}">
+      <div class="activity-item" style="border-left-color: ${color};">
         <div class="activity-icon">🧘</div>
         <div class="activity-content">
           <div class="activity-name">${nameDisplay}${streakBadges}</div>
           <div class="activity-details">${activity.minutes} 分鐘 · ${formatDate(activity.date)}</div>
         </div>
-        <div class="activity-points ${config.color}">+${Math.round(activity.points)}</div>
+        <div class="activity-points" style="color: ${color};">+${Math.round(activity.points)}</div>
       </div>
     `;
     }).join('');
@@ -564,36 +208,267 @@ function showError(message) {
 // ========================================
 // Main App
 // ========================================
+
+// Calculate team scores from API data (meditation + practice + class)
+function calculateTeamScores(apiData) {
+    const teamScores = {};
+    const teamMembers = {};
+    let topMeditator = { name: '--', points: 0, team: '' };
+
+    // Initialize teams from API (if available) or discover from data
+    for (const team of teamsFromAPI) {
+        teamScores[team.name] = 0;
+        teamMembers[team.name] = [];
+    }
+
+    // Helper to accumulate member scores
+    const memberTotals = {}; // { "team:name": { meditation, practice, class } }
+
+    // Process meditation data
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].meditation = m.total || 0;
+        }
+    }
+
+    // Process practice data (total is in points)
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].practice = m.total || 0;
+        }
+    }
+
+    // Process class data (has points field)
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].class = m.points || 0;
+        }
+    }
+
+    // Aggregate into team scores and find top meditator
+    for (const data of Object.values(memberTotals)) {
+        const total = data.meditation + data.practice + data.class;
+        if (teamScores[data.team] === undefined) teamScores[data.team] = 0;
+        if (!teamMembers[data.team]) teamMembers[data.team] = [];
+        teamScores[data.team] += total;
+        teamMembers[data.team].push({ name: data.name, points: total });
+
+        if (data.meditation > topMeditator.points) {
+            topMeditator = { name: data.name, points: data.meditation, team: data.team };
+        }
+    }
+
+    // Sort members by points
+    for (const team of Object.keys(teamMembers)) {
+        teamMembers[team].sort((a, b) => b.points - a.points);
+    }
+
+    return { teamScores, teamMembers, topMeditator };
+}
+
+// Process recent activity from API for activity feed
+function processRecentActivity(recentActivity, apiData) {
+    // Build member -> team mapping from meditation data
+    const memberTeams = {};
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            memberTeams[m.name] = m.team;
+        }
+    }
+
+    // Calculate streaks from daily data
+    const memberStreaks = calculateStreaksFromAPI(apiData);
+
+    let totalMinutes = 0;
+    let totalSessions = 0;
+    let longestSession = { minutes: 0, name: '' };
+    const activities = [];
+
+    for (const item of recentActivity || []) {
+        const name = cleanName(item.name || '');
+        const team = memberTeams[name] || 'Unknown';
+        const minutes = item.minutes || 0;
+        const date = item.date || '';
+
+        totalMinutes += minutes;
+        totalSessions++;
+
+        if (minutes > longestSession.minutes) {
+            longestSession = { minutes, name };
+        }
+
+        const streaks = memberStreaks[name] || { solo: 0, activity: 0 };
+
+        activities.push({
+            name,
+            team,
+            minutes,
+            date,
+            points: minutes, // meditation points = minutes
+            soloStreak: streaks.solo,
+            activityStreak: streaks.activity
+        });
+    }
+
+    return {
+        activities: activities.slice(0, 20),
+        totalMinutes,
+        totalSessions,
+        longestSession
+    };
+}
+
+// Calculate streaks from API daily data
+function calculateStreaksFromAPI(apiData) {
+    const memberActivity = {}; // { name: { dateStr: { meditation, practice, class } } }
+
+    const ensureMember = (name, date) => {
+        if (!memberActivity[name]) memberActivity[name] = {};
+        if (!memberActivity[name][date]) memberActivity[name][date] = { meditation: false, practice: false, class: false };
+    };
+
+    // Process meditation daily
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].meditation = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process practice daily
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].practice = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Process class daily
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            if (m.daily) {
+                for (const date of Object.keys(m.daily)) {
+                    if (m.daily[date] > 0) {
+                        ensureMember(m.name, date);
+                        memberActivity[m.name][date].class = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Calculate streaks
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const calcStreak = (dateStrs) => {
+        if (dateStrs.length === 0) return 0;
+
+        const sortedDates = dateStrs
+            .map(d => {
+                const parts = d.split('/');
+                const month = parseInt(parts[0]) || 1;
+                const day = parseInt(parts[1]) || 1;
+                const year = month < 6 ? 2026 : 2025;
+                return { str: d, date: new Date(year, month - 1, day) };
+            })
+            .sort((a, b) => a.date - b.date);
+
+        const lastDate = new Date(sortedDates[sortedDates.length - 1].date);
+        lastDate.setHours(0, 0, 0, 0);
+
+        if (lastDate < yesterday) return 0;
+
+        let streak = 1;
+        for (let i = sortedDates.length - 2; i >= 0; i--) {
+            const curr = new Date(sortedDates[i + 1].date);
+            const prev = new Date(sortedDates[i].date);
+            curr.setHours(0, 0, 0, 0);
+            prev.setHours(0, 0, 0, 0);
+            const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+            if (diffDays === 1) streak++;
+            else break;
+        }
+        return streak;
+    };
+
+    const streaks = {};
+    for (const [name, days] of Object.entries(memberActivity)) {
+        const soloD = Object.keys(days).filter(d => days[d].meditation);
+        const actD = Object.keys(days).filter(d => days[d].meditation || days[d].practice || days[d].class);
+        streaks[name] = { solo: calcStreak(soloD), activity: calcStreak(actD) };
+    }
+
+    return streaks;
+}
+
 async function loadData() {
     try {
-        console.log('Fetching data from Google Sheets...');
+        console.log('Fetching data from API...');
 
-        // Fetch all data sources in parallel
-        const [totalsData, formRows, memberTeams, memberStreaks] = await Promise.all([
-            fetchTotalsData(),
-            fetchFormResponsesData(),
-            fetchMemberTeams(),
-            fetchMemberStreaks()
+        // Fetch teams and data in parallel
+        const [teamsResponse, dataResponse] = await Promise.all([
+            fetch('/api/admin/teams'),
+            fetch('/api/data')
         ]);
 
-        console.log('Totals data:', totalsData);
-        console.log(`Form responses: ${formRows.length} rows`);
+        // Process teams (build color map)
+        if (teamsResponse.ok) {
+            const teamsData = await teamsResponse.json();
+            teamsFromAPI = teamsData.teams || [];
+            teamColorMap = {};
+            for (const team of teamsFromAPI) {
+                teamColorMap[team.name] = team.color;
+            }
+            console.log('Loaded teams:', teamsFromAPI.length);
+        }
 
-        // Process form responses for activity feed and stats
-        const formData = processFormResponses(formRows, memberTeams, memberStreaks);
+        if (!dataResponse.ok) {
+            throw new Error(`API error: ${dataResponse.status}`);
+        }
+        const apiData = await dataResponse.json();
+
+        console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
+
+        // Calculate team scores from API data
+        const { teamScores, teamMembers, topMeditator } = calculateTeamScores(apiData);
+
+        // Process recent activity for activity feed and stats
+        const activityData = processRecentActivity(apiData.recentActivity, apiData);
 
         // Combine data
         const data = {
-            teamScores: totalsData.teamScores,
-            topMeditator: totalsData.topMeditator,
-            teamMembers: totalsData.teamMembers,
-            totalMinutes: formData.totalMinutes,
-            totalSessions: formData.totalSessions,
-            longestSession: formData.longestSession,
-            recentActivities: formData.recentActivities,
+            teamScores,
+            topMeditator,
+            teamMembers,
+            totalMinutes: activityData.totalMinutes,
+            totalSessions: activityData.totalSessions,
+            longestSession: activityData.longestSession,
+            recentActivities: activityData.activities,
         };
 
-        console.log('Combined data:', data);
+        console.log('Processed data:', data);
 
         renderTeamBars(data.teamScores);
         renderStats(data);
@@ -609,18 +484,16 @@ async function loadData() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Initial load
-    loadData();
-
-    // Auto-refresh every 5 minutes
-    setInterval(loadData, CONFIG.REFRESH_INTERVAL);
-
-    // Initialize theme from localStorage or default to light
+    // Initialize theme first (sync, fast)
     initTheme();
-
-    // Initialize settings panel
     initSettings();
 
     console.log('🧘 Meditation Dashboard initialized');
-    console.log(`Auto-refresh interval: ${CONFIG.REFRESH_INTERVAL / 1000 / 60} minutes`);
+
+    // Load data (async, may take time)
+    loadData();
+
+    // Auto-refresh every 5 minutes
+    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    setInterval(loadData, REFRESH_INTERVAL);
 });

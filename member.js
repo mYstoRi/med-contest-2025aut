@@ -11,184 +11,6 @@ import {
 } from './utils.js';
 
 // ========================================
-// Member Data Parsing
-// ========================================
-function parseMemberMeditation(csvText, memberName, teamName) {
-    const lines = csvText.split('\n').map(parseCSVLine);
-    const dates = lines[0]?.slice(3) || []; // Row 0 has dates
-
-    const dailyData = {};
-    let totalMinutes = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 4) continue;
-
-        const rowTeam = row[0];
-        const rowMember = row[1];
-
-        if (rowTeam === teamName && rowMember === memberName) {
-            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                const date = dates[j - 3];
-                if (!date || !date.trim()) continue;
-
-                const minutes = parseFloat(row[j]) || 0;
-                if (minutes > 0) {
-                    dailyData[date] = (dailyData[date] || 0) + minutes;
-                    totalMinutes += minutes;
-                }
-            }
-        }
-    }
-
-    return { dailyData, total: totalMinutes };
-}
-
-function parseMemberPractice(csvText, memberName, teamName) {
-    const lines = csvText.split('\n').map(parseCSVLine);
-    const pointsPerSession = lines[0]?.slice(3).map(p => parseFloat(p) || 0) || [];
-    const dates = lines[1]?.slice(3) || [];
-
-    const sessions = [];
-    let totalPoints = 0;
-
-    for (let i = 2; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 4) continue;
-
-        const rowTeam = row[0];
-        const rowMember = row[1];
-
-        if (rowTeam === teamName && rowMember === memberName) {
-            for (let j = 3; j < row.length && (j - 3) < dates.length; j++) {
-                const date = dates[j - 3];
-                if (!date || !date.trim()) continue;
-
-                const attended = parseFloat(row[j]) || 0;
-                if (attended > 0) {
-                    const points = pointsPerSession[j - 3] || 40;
-                    sessions.push({ date, points });
-                    totalPoints += points;
-                }
-            }
-        }
-    }
-
-    return { sessions, total: totalPoints };
-}
-
-function parseMemberClass(csvText, memberName, teamName) {
-    const lines = csvText.split('\n').map(parseCSVLine);
-    const dates = lines[0]?.slice(4) || []; // Skip 總計 column
-
-    const sessions = [];
-    let totalCount = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 5) continue;
-
-        const rowTeam = row[0];
-        const rowMember = row[1];
-
-        if (rowTeam === teamName && rowMember === memberName) {
-            // Column 3 has total count
-            totalCount = parseFloat(row[3]) || 0;
-
-            // Get individual dates
-            for (let j = 4; j < row.length && (j - 4) < dates.length; j++) {
-                const date = dates[j - 4];
-                if (!date || !date.trim()) continue;
-
-                const attended = parseFloat(row[j]) || 0;
-                if (attended > 0) {
-                    sessions.push({ date, count: attended });
-                }
-            }
-        }
-    }
-
-    return { sessions, total: totalCount * CONFIG.POINTS.CLASS_PER_ATTENDANCE, count: totalCount };
-}
-
-function getTeamMemberCount(meditationCSV, teamName) {
-    const lines = meditationCSV.split('\n').map(parseCSVLine);
-    const members = new Set();
-
-    for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row || row.length < 2) continue;
-
-        if (row[0] === teamName && row[1]) {
-            members.add(row[1]);
-        }
-    }
-
-    return members.size;
-}
-
-function getMemberRank(meditationCSV, practiceCSV, classCSV, memberName, teamName) {
-    // Calculate all member scores for ranking
-    const meditationLines = meditationCSV.split('\n').map(parseCSVLine);
-    const practiceLines = practiceCSV.split('\n').map(parseCSVLine);
-    const classLines = classCSV.split('\n').map(parseCSVLine);
-
-    const memberScores = {};
-
-    // Meditation scores
-    for (let i = 1; i < meditationLines.length; i++) {
-        const row = meditationLines[i];
-        if (!row || row.length < 4 || row[0] !== teamName) continue;
-
-        const name = row[1];
-        if (!name) continue;
-
-        let total = 0;
-        for (let j = 3; j < row.length; j++) {
-            total += parseFloat(row[j]) || 0;
-        }
-        memberScores[name] = (memberScores[name] || 0) + total;
-    }
-
-    // Practice scores
-    const pointsPerSession = practiceLines[0]?.slice(3).map(p => parseFloat(p) || 0) || [];
-    for (let i = 2; i < practiceLines.length; i++) {
-        const row = practiceLines[i];
-        if (!row || row.length < 4 || row[0] !== teamName) continue;
-
-        const name = row[1];
-        if (!name) continue;
-
-        for (let j = 3; j < row.length && (j - 3) < pointsPerSession.length; j++) {
-            const attended = parseFloat(row[j]) || 0;
-            if (attended > 0) {
-                memberScores[name] = (memberScores[name] || 0) + (pointsPerSession[j - 3] || 40);
-            }
-        }
-    }
-
-    // Class scores
-    for (let i = 1; i < classLines.length; i++) {
-        const row = classLines[i];
-        if (!row || row.length < 4 || row[0] !== teamName) continue;
-
-        const name = row[1];
-        if (!name) continue;
-
-        const totalCount = parseFloat(row[3]) || 0;
-        memberScores[name] = (memberScores[name] || 0) + (totalCount * CONFIG.POINTS.CLASS_PER_ATTENDANCE);
-    }
-
-    // Sort and find rank
-    const sorted = Object.entries(memberScores)
-        .filter(([_, score]) => score > 0)
-        .sort((a, b) => b[1] - a[1]);
-
-    const rank = sorted.findIndex(([name]) => name === memberName) + 1;
-    return { rank, total: sorted.length };
-}
-
-// ========================================
 // Streak Calculation
 // ========================================
 function calculateStreaks(meditationDaily, practiceSessions, classSessions) {
@@ -508,6 +330,117 @@ function showError(message) {
 }
 
 // ========================================
+// API Data Extraction
+// ========================================
+
+// Extract member meditation data from API
+function getMemberMeditationFromAPI(apiData, memberName, teamName) {
+    const dailyData = {};
+    let total = 0;
+
+    if (apiData.meditation?.members) {
+        const member = apiData.meditation.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            total = member.total || 0;
+            if (member.daily) {
+                Object.assign(dailyData, member.daily);
+            }
+        }
+    }
+
+    return { dailyData, total };
+}
+
+// Extract member practice data from API
+function getMemberPracticeFromAPI(apiData, memberName, teamName) {
+    const sessions = [];
+    let total = 0;
+
+    if (apiData.practice?.members) {
+        const member = apiData.practice.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            total = member.total || 0;
+            if (member.daily) {
+                for (const [date, points] of Object.entries(member.daily)) {
+                    sessions.push({ date, points });
+                }
+            }
+        }
+    }
+
+    return { sessions, total };
+}
+
+// Extract member class data from API
+function getMemberClassFromAPI(apiData, memberName, teamName) {
+    const sessions = [];
+    let totalPoints = 0;
+    let count = 0;
+
+    if (apiData.class?.members) {
+        const member = apiData.class.members.find(m =>
+            m.name === memberName && m.team === teamName
+        );
+        if (member) {
+            totalPoints = member.points || 0;
+            count = member.total || 0;
+            if (member.daily) {
+                for (const [date, attended] of Object.entries(member.daily)) {
+                    if (attended > 0) {
+                        sessions.push({ date, count: attended });
+                    }
+                }
+            }
+        }
+    }
+
+    return { sessions, total: totalPoints, count };
+}
+
+// Get member rank from API data
+function getMemberRankFromAPI(apiData, memberName, teamName) {
+    const memberTotals = {}; // { "team:name": { meditation, practice, class } }
+
+    // Collect all members' totals
+    if (apiData.meditation?.members) {
+        for (const m of apiData.meditation.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].meditation = m.total || 0;
+        }
+    }
+    if (apiData.practice?.members) {
+        for (const m of apiData.practice.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].practice = m.total || 0;
+        }
+    }
+    if (apiData.class?.members) {
+        for (const m of apiData.class.members) {
+            const key = `${m.team}:${m.name}`;
+            if (!memberTotals[key]) memberTotals[key] = { team: m.team, name: m.name, meditation: 0, practice: 0, class: 0 };
+            memberTotals[key].class = m.points || 0;
+        }
+    }
+
+    // Filter by team and sort
+    const teamMembers = Object.values(memberTotals)
+        .filter(m => m.team === teamName)
+        .map(m => ({ ...m, total: m.meditation + m.practice + m.class }))
+        .sort((a, b) => b.total - a.total);
+
+    const rank = teamMembers.findIndex(m => m.name === memberName) + 1;
+    const totalMembers = teamMembers.length;
+
+    return { rank, total: totalMembers };
+}
+
+// ========================================
 // Initialize
 // ========================================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -527,20 +460,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.title = `${memberName} | 個人詳情`;
 
     try {
-        // Fetch all sheet data
-        const [meditationCSV, practiceCSV, classCSV] = await Promise.all([
-            fetchSheetData(CONFIG.SHEETS.MEDITATION),
-            fetchSheetData(CONFIG.SHEETS.PRACTICE),
-            fetchSheetData(CONFIG.SHEETS.CLASS)
-        ]);
+        console.log('Fetching data from API...');
 
-        // Parse member data
-        const meditation = parseMemberMeditation(meditationCSV, memberName, teamName);
-        const practice = parseMemberPractice(practiceCSV, memberName, teamName);
-        const classData = parseMemberClass(classCSV, memberName, teamName);
+        // Single API call to get all data
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+        const apiData = await response.json();
+
+        console.log('API data received:', apiData.fromCache ? 'from cache' : 'fresh');
+
+        // Extract member data from API
+        const meditation = getMemberMeditationFromAPI(apiData, memberName, teamName);
+        const practice = getMemberPracticeFromAPI(apiData, memberName, teamName);
+        const classData = getMemberClassFromAPI(apiData, memberName, teamName);
 
         // Get ranking
-        const rank = getMemberRank(meditationCSV, practiceCSV, classCSV, memberName, teamName);
+        const rank = getMemberRankFromAPI(apiData, memberName, teamName);
 
         // Calculate streaks (solo and activity)
         const streaks = calculateStreaks(meditation.dailyData, practice.sessions, classData.sessions);
