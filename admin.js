@@ -139,8 +139,12 @@ async function loadSettings() {
 
         // Announcement
         const announcementInput = $('announcementInput');
+        const announcementRewardInput = $('announcementRewardInput');
         if (announcementInput) {
             announcementInput.value = data.announcement || '';
+        }
+        if (announcementRewardInput) {
+            announcementRewardInput.value = data.announcementReward || '';
         }
 
     } catch (error) {
@@ -178,7 +182,9 @@ async function toggleMaintenanceMode() {
 
 async function saveAnnouncement() {
     const input = $('announcementInput');
+    const rewardInput = $('announcementRewardInput');
     const content = input.value.trim();
+    const reward = rewardInput ? rewardInput.value.trim() : '';
     const btn = $('saveAnnouncementBtn');
 
     try {
@@ -187,7 +193,10 @@ async function saveAnnouncement() {
 
         await apiCall('/settings', {
             method: 'POST',
-            body: JSON.stringify({ announcement: content }),
+            body: JSON.stringify({
+                announcement: content,
+                announcementReward: reward
+            }),
         });
 
         showToast('公告已更新 Announcement updated');

@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
     maintenanceMode: false,
     maintenanceMessage: '網站維護中，請稍後再試。\nSite under maintenance, please try again later.',
     announcement: '',
+    announcementReward: '',
 };
 
 /**
@@ -84,6 +85,9 @@ export default async function handler(req, res) {
             }
             if (typeof req.body.announcement === 'string') {
                 updates.announcement = req.body.announcement;
+            }
+            if (typeof req.body.announcementReward === 'string') {
+                updates.announcementReward = req.body.announcementReward;
             }
 
             const updated = await updateSettings(updates);

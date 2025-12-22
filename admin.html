@@ -1064,8 +1064,12 @@
                 <div class="form-group">
                     <label class="form-label" for="announcementInput">公告內容 Content</label>
                     <input type="text" id="announcementInput" class="form-input"
-                        placeholder="e.g. 今晚有課！Tonight there is a class! (+50 📚)"
+                        placeholder="e.g. 今晚有課！Tonight there is a class!" style="margin-bottom: var(--spacing-sm);">
+
+                    <label class="form-label" for="announcementRewardInput">獎勵標籤 Reward Tag</label>
+                    <input type="text" id="announcementRewardInput" class="form-input" placeholder="e.g. +50 📚"
                         style="margin-bottom: var(--spacing-md);">
+
                     <button class="action-btn primary" id="saveAnnouncementBtn" onclick="saveAnnouncement()">儲存公告 Save
                         Announcement</button>
                 </div>

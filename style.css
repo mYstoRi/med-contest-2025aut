@@ -1486,10 +1486,27 @@ body {
   animation: float 3s ease-in-out infinite;
   max-width: 95%;
   text-align: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .announcement-icon {
   font-size: 1.4rem;
+}
+
+.announcement-reward {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  margin-left: 4px;
+}
+
+.announcement-reward.hidden {
+  display: none;
 }
 
 @keyframes float {
@@ -1511,4 +1528,10 @@ body {
   border-color: rgba(139, 92, 246, 0.2);
   color: #6d28d9;
   box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}
+
+[data-theme="light"] .announcement-reward {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.3);
 }

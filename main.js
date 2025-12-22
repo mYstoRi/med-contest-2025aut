@@ -522,8 +522,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Show announcement if exists
         const announcementBoard = document.getElementById('announcementBoard');
         const announcementText = document.getElementById('announcementText');
+        const announcementReward = document.getElementById('announcementReward');
+
         if (settings.announcement && announcementBoard && announcementText) {
             announcementText.textContent = settings.announcement;
+            if (announcementReward) {
+                if (settings.announcementReward) {
+                    announcementReward.textContent = settings.announcementReward;
+                    announcementReward.classList.remove('hidden');
+                } else {
+                    announcementReward.classList.add('hidden');
+                }
+            }
             announcementBoard.classList.remove('hidden');
         } else if (announcementBoard) {
             announcementBoard.classList.add('hidden');
