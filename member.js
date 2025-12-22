@@ -183,7 +183,174 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
 // ========================================
 // Rendering
 // ========================================
-function renderMemberPage(memberName, teamName, meditation, practice, classData, rank, streaks) {
+// Get global rank from API data (comparable to getMemberRankFromAPI but for all teams)
+function getGlobalRankFromAPI(apiData, memberName) {
+    const memberTotals = {};
+
+    // Collect all members from all sheets
+    ['meditation', 'practice', 'class'].forEach(type => {
+        if (apiData[type]?.members) {
+            for (const m of apiData[type].members) {
+                const key = `${m.team}:${m.name}`;
+                if (!memberTotals[key]) memberTotals[key] = 0;
+                memberTotals[key] += (type === 'class' ? (m.points || 0) : (m.total || 0));
+            }
+        }
+    });
+
+    // Sort all members by total points
+    const allMembers = Object.entries(memberTotals)
+        .map(([key, total]) => {
+            const [team, name] = key.split(':');
+            return { team, name, total };
+        })
+        .sort((a, b) => b.total - a.total);
+
+    const rank = allMembers.findIndex(m => m.name === memberName) + 1;
+    return { rank, total: allMembers.length, score: memberTotals[`${new URLSearchParams(window.location.search).get('team')}:${memberName}`] || 0 };
+}
+
+function calculatePrizes(dailyData, globalRank) {
+    // 1. Atomic Habits Master (Perfect streak from Dec 22)
+    const startDate = new Date(2025, 11, 22); // Dec 22, 2025
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let isAtomic = true;
+    let checkDate = new Date(startDate);
+
+    // If today is before start date, it's pending/active
+    if (today >= startDate) {
+        while (checkDate <= today) {
+            const month = checkDate.getMonth() + 1;
+            const day = checkDate.getDate();
+            const dateStr = `${month}/${day}`;
+
+            // Check if any activity exists for this day (meditation, practice, class)
+            // Note: dailyData passed here is currently just meditation. 
+            // We need ALL activity for "Atomic Habit"? 
+            // User said "maintain perfect streak". Usually implies the main 'activity streak'.
+            // However, calculatePrizes is called with what?
+            // Existing dailyData in renderMemberPage is ONLY meditation. 
+            // We should check 'activity streak' logic which uses all 3.
+            // But here we might not have easy access to combined daily map unless we build it.
+            // BUT: We calculated 'streaks' earlier. 
+            // If current activity streak covers the period since Dec 22, we are good.
+            // Dec 22 to Today is X days. If streak >= X, then good.
+
+            // Let's use the simple logic: calculate days from Dec 22 to Today.
+            // If current activity streak >= days_diff + 1, then ON TRACK.
+
+            // Wait, "Perfect streak from 12/22".
+            // If today is 12/25. Days: 22, 23, 24, 25. Total 4 days.
+            // If streak is 4, then yes.
+            checkDate.setDate(checkDate.getDate() + 1);
+        }
+    }
+
+    // We will determine status based on passed-in 'streaks' object in render
+
+    // 2. Rock Solid Ninja (60+ min meditation)
+    let hasRockSolid = false;
+    for (const mins of Object.values(dailyData)) {
+        if (mins >= 60) {
+            hasRockSolid = true;
+            break;
+        }
+    }
+
+    // 3. Grinder King (Global Rank 1)
+    const isGrinder = globalRank.rank === 1;
+
+    return {
+        atomicStart: startDate,
+        hasRockSolid,
+        isGrinder,
+        globalRank: globalRank.rank
+    };
+}
+
+function renderPrizes(prizes, streaks) {
+    // Check Atomic status
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = prizes.atomicStart;
+
+    // Calculate days required
+    const diffTime = Math.abs(today - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Inclusive
+
+    // If start date is in future, it's "Ready"
+    let atomicStatus = '🔥 持續中 On Track';
+    let atomicClass = 'active';
+
+    if (today < startDate) {
+        atomicStatus = '⏳ 即將開始 Starting Soon';
+        atomicClass = 'pending';
+    } else {
+        // If current activity streak >= required days, good.
+        // Actually, streak logic handles "yesterday" gaps. 
+        // If user did it today, current streak includes today.
+        // If user didn't do it today yet, streak might be from yesterday, but "On Track" valid if they do it today?
+        // Let's be strict: if streak < diffDays, and streak < diffDays - 1 (allowed skip today?), 
+        // Actually, if they missed yesterday, streak resets to 0 or 1.
+        // If streak < diffDays, it means they broke it at some point since Dec 22.
+        // Assumption: Streak calculation is correct.
+
+        if (streaks.activity.current < diffDays && streaks.activity.current < (today.getHours() < 5 ? diffDays - 1 : diffDays)) {
+            // Allow late night entries or missed today? 
+            // Simple check: if streak < diffDays, it's broken? 
+            // Wait, if I start on Dec 22. Today Dec 22. Diff 1. Streak 1. OK.
+            // If today Dec 23. Diff 2. Streak 2. OK.
+            // If I missed Dec 22. Today Dec 23. Streak 1 (for today). 1 < 2. Broken.
+            atomicStatus = '❌ 已中斷 Broken';
+            atomicClass = 'broken';
+        }
+    }
+
+    return `
+        <section class="prizes-section">
+            <h2 class="section-title">
+                <span class="section-icon">🏆</span>
+                獎項進度 Prizes Progress
+            </h2>
+            <div class="prize-cards">
+                <!-- Atomic Habits -->
+                <div class="prize-card ${atomicClass}">
+                    <div class="prize-icon">⚛️</div>
+                    <div class="prize-info">
+                        <div class="prize-title">原子習慣大師</div>
+                        <div class="prize-desc">Atomic Habits Master</div>
+                        <div class="prize-status">${atomicStatus}</div>
+                    </div>
+                </div>
+
+                <!-- Rock Solid -->
+                <div class="prize-card ${prizes.hasRockSolid ? 'unlocked' : 'locked'}">
+                    <div class="prize-icon">🪨</div>
+                    <div class="prize-info">
+                        <div class="prize-title">堅若磐石忍者</div>
+                        <div class="prize-desc">Rock Solid Ninja</div>
+                        <div class="prize-status">${prizes.hasRockSolid ? '✅ 已達成 Unlocked' : '💪 尚未達成 Locked'}</div>
+                    </div>
+                </div>
+
+                <!-- Grinder King -->
+                <div class="prize-card ${prizes.isGrinder ? 'gold-active' : 'locked'}">
+                    <div class="prize-icon">👺</div>
+                    <div class="prize-info">
+                        <div class="prize-title">最強內捲王</div>
+                        <div class="prize-desc">The Grinder King</div>
+                        <div class="prize-status">${prizes.isGrinder ? '👑 目前第一 Current #1' : `📈 目前排位 Rank: #${prizes.globalRank}`}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+// Render Member Page
+function renderMemberPage(memberName, teamName, meditation, practice, classData, rank, streaks, prizes) {
     const container = document.getElementById('memberContent');
     if (!container) return;
 
@@ -191,30 +358,6 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
     const meditationPct = totalScore > 0 ? (meditation.total / totalScore * 100) : 0;
     const practicePct = totalScore > 0 ? (practice.total / totalScore * 100) : 0;
     const classPct = totalScore > 0 ? (classData.total / totalScore * 100) : 0;
-
-    // Build activity history
-    const activities = [];
-
-    // Add meditation days
-    for (const [date, minutes] of Object.entries(meditation.dailyData)) {
-        activities.push({ date, type: 'meditation', minutes, points: minutes });
-    }
-
-    // Add practice sessions
-    for (const session of practice.sessions) {
-        activities.push({ date: session.date, type: 'practice', points: session.points });
-    }
-
-    // Add class sessions
-    for (const session of classData.sessions) {
-        activities.push({ date: session.date, type: 'class', points: session.count * CONFIG.POINTS.CLASS_PER_ATTENDANCE });
-    }
-
-    // Sort by date (most recent first)
-    // Sort by date (most recent first)
-    // Use parseDate from utils.js
-
-    activities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
 
     const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;
     const rankEmoji = rank.rank === 1 ? '🥇' : rank.rank === 2 ? '🥈' : rank.rank === 3 ? '🥉' : '🏅';
@@ -226,7 +369,7 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
             <div class="member-avatar">🧘</div>
             <h1 class="member-name-title">${memberName}</h1>
             <a href="${teamUrl}" class="member-team-link">${teamName}</a>
-            <div class="member-rank-badge">${rankEmoji} 第 ${rank.rank} 名 / ${rank.total} 人</div>
+            <div class="member-rank-badge">${rankEmoji} 第 ${rank.rank} 名 / ${rank.total} 人 (隊內)</div>
         </header>
         
         <!-- Stats Overview -->
@@ -267,6 +410,9 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
                 <div class="streak-label">最長獨修 Longest Solo</div>
             </div>
         </div>
+
+        <!-- Prizes Progress -->
+        ${renderPrizes(prizes, streaks)}
         
         <!-- Score Breakdown -->
         <section class="breakdown-section">
@@ -470,14 +616,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Get ranking
         const rank = getMemberRankFromAPI(apiData, memberName, teamName);
+        const globalRank = getGlobalRankFromAPI(apiData, memberName);
 
         // Calculate streaks (solo and activity)
         const streaks = calculateStreaks(meditation.dailyData, practice.sessions, classData.sessions);
 
-        console.log('Member data:', { memberName, teamName, meditation, practice, classData, rank, streaks });
+        // Calculate prizes
+        const prizes = calculatePrizes(meditation.dailyData, globalRank);
+
+        console.log('Member data:', { memberName, teamName, meditation, practice, classData, rank, streaks, prizes });
 
         // Render page
-        renderMemberPage(memberName, teamName, meditation, practice, classData, rank, streaks);
+        renderMemberPage(memberName, teamName, meditation, practice, classData, rank, streaks, prizes);
 
     } catch (error) {
         console.error('Failed to load member data:', error);

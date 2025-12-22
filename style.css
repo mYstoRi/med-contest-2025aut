@@ -1149,3 +1149,149 @@ body {
 [data-theme="light"] .leaderboard-item:hover {
   background: rgba(0, 0, 0, 0.03);
 }
+
+/* ========================================
+   Prize Section Styles
+   ======================================== */
+.prizes-section {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.prize-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.prize-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.prize-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.prize-icon {
+  font-size: 2.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.prize-info {
+  flex: 1;
+}
+
+.prize-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.prize-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+  opacity: 0.8;
+}
+
+.prize-status {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Status Variants */
+.prize-card.active .prize-status {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.prize-card.active {
+  border-color: rgba(74, 222, 128, 0.3);
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.1);
+}
+
+.prize-card.unlocked .prize-status {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.prize-card.unlocked {
+  border-color: rgba(96, 165, 250, 0.3);
+  box-shadow: 0 0 15px rgba(96, 165, 250, 0.1);
+}
+
+.prize-card.gold-active .prize-status {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.prize-card.gold-active {
+  border-color: rgba(251, 191, 36, 0.4);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), transparent);
+}
+
+.prize-card.broken .prize-status {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.prize-card.broken {
+  opacity: 0.8;
+}
+
+.prize-card.pending .prize-status {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+}
+
+.prize-card.locked .prize-status {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.1);
+}
+
+.prize-card.locked {
+  opacity: 0.7;
+}
+
+/* Light Theme Adjustments */
+[data-theme="light"] .prize-card {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .prize-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
