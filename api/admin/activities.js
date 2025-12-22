@@ -624,6 +624,7 @@ export default async function handler(req, res) {
                 try {
                     if (deleteId.startsWith('db_')) {
                         // Parse the ID format: db_{type}_{team}_{name}_{date}
+                        // Date can be MM/DD or YYYY/MM/DD
                         const parts = deleteId.split('_');
                         if (parts.length < 5) {
                             results.failed.push({ id: deleteId, error: 'Invalid database activity ID format' });
@@ -632,7 +633,12 @@ export default async function handler(req, res) {
 
                         const type = parts[1]; // med, prac, or class
                         const idRemainder = parts.slice(2).join('_');
-                        const dateMatch = idRemainder.match(/(\d{4}\/\d{1,2}\/\d{1,2})$/);
+
+                        // Try both date formats: YYYY/MM/DD or MM/DD
+                        let dateMatch = idRemainder.match(/(\d{4}\/\d{1,2}\/\d{1,2})$/);
+                        if (!dateMatch) {
+                            dateMatch = idRemainder.match(/(\d{1,2}\/\d{1,2})$/);
+                        }
                         if (!dateMatch) {
                             results.failed.push({ id: deleteId, error: 'Could not parse date' });
                             continue;
@@ -664,20 +670,42 @@ export default async function handler(req, res) {
                             continue;
                         }
 
+                        // Helper to normalize date
+                        const normDate = (dateStr) => {
+                            if (!dateStr) return '';
+                            const p = dateStr.split('/');
+                            if (p.length === 3) return `${parseInt(p[1], 10)}/${parseInt(p[2], 10)}`;
+                            if (p.length === 2) return `${parseInt(p[0], 10)}/${parseInt(p[1], 10)}`;
+                            return dateStr;
+                        };
+                        const normalizedDate = normDate(date);
+
                         const member = data.members.find(m => m.team === team && m.name === name);
-                        if (!member || !member.daily || !member.daily[date]) {
+                        if (!member || !member.daily) {
+                            results.failed.push({ id: deleteId, error: 'Member not found' });
+                            continue;
+                        }
+
+                        // Find and delete the matching date entry
+                        let found = false;
+                        for (const dk of Object.keys(member.daily)) {
+                            if (normDate(dk) === normalizedDate) {
+                                delete member.daily[dk];
+                                member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
                             results.failed.push({ id: deleteId, error: 'Activity not found' });
                             continue;
                         }
 
-                        const deletedValue = member.daily[date];
-                        delete member.daily[date];
-                        member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
-
                         const { setDataPermanent } = await import('../_lib/kv.js');
                         await setDataPermanent(dataKey, data);
 
-                        results.deleted.push({ id: deleteId, type, team, name, date, value: deletedValue });
+                        results.deleted.push({ id: deleteId, type, team, name, date: normalizedDate });
                     } else if (deleteId.startsWith('sub_') || deleteId.startsWith('sync_')) {
                         // Submission-based activity - delete from submissions:all
                         if (!submissionsLoaded) {
