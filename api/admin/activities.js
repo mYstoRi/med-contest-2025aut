@@ -657,12 +657,25 @@ export default async function handler(req, res) {
                         if (!submissionsLoaded) {
                             submissionsData = await getCache('submissions:all') || [];
                             submissionsLoaded = true;
+                            console.log(`🗑️ Loaded ${submissionsData.length} submissions for delete`);
                         }
 
+                        // Helper to normalize date for ID matching
+                        const normDate = (dateStr) => {
+                            if (!dateStr) return '';
+                            const parts = dateStr.split('/');
+                            if (parts.length === 3) {
+                                return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+                            } else if (parts.length === 2) {
+                                return `${parseInt(parts[0], 10)}/${parseInt(parts[1], 10)}`;
+                            }
+                            return dateStr;
+                        };
+
                         const originalLength = submissionsData.length;
-                        // Find and remove by matching ID
+                        // Find and remove by matching ID (with normalized date)
                         submissionsData = submissionsData.filter(sub => {
-                            const subId = sub.id || `sub_${sub.name}_${sub.date}`;
+                            const subId = sub.id || `sub_${sub.name}_${normDate(sub.date)}`;
                             return subId !== deleteId;
                         });
 
