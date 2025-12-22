@@ -430,13 +430,37 @@ export default async function handler(req, res) {
             // Convert to unified activities format
             const unifiedActivities = convertToUnifiedActivities(sheetData);
 
-            console.log('💾 Saving sheet data to database...');
+            // Extract all members from sheets (for comprehensive member list)
+            const syncedMembers = [];
+            const seenMembers = new Set();
+            const addSyncedMember = (list) => {
+                if (!list) return;
+                for (const m of list) {
+                    const key = `${m.team}:${m.name}`;
+                    if (!seenMembers.has(key)) {
+                        seenMembers.add(key);
+                        syncedMembers.push({
+                            id: `synced_${m.team}_${m.name}`,
+                            name: m.name,
+                            team: m.team || 'Unknown',
+                            source: 'sync'
+                        });
+                    }
+                }
+            };
+            addSyncedMember(sheetData.meditation?.members);
+            addSyncedMember(sheetData.practice?.members);
+            addSyncedMember(sheetData.class?.members);
+
+            console.log(`💾 Saving sheet data to database... (${syncedMembers.length} members)`);
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, sheetData.meditation),
                 setDataPermanent(DATA_KEYS.PRACTICE, sheetData.practice),
                 setDataPermanent(DATA_KEYS.CLASS, sheetData.class),
                 // Store unified activities
                 setDataPermanent('activities:all', unifiedActivities),
+                // Store synced members
+                setDataPermanent('members:synced', syncedMembers),
                 setCacheMeta({
                     syncedAt: sheetData.syncedAt,
                     recentActivity: sheetData.recentActivity.slice(0, 50),

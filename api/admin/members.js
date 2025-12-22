@@ -131,32 +131,67 @@ export default async function handler(req, res) {
             // Get manually added members
             const manualMembers = await getMembers();
 
-            // Get members from unified activities
+            // Get synced members (from sheets, includes those with 0 activities)
+            const syncedMembers = await getCache('members:synced') || [];
+
+            // Get members from unified activities (to calculate current scores)
             const dbMembers = await getMembersFromUnified();
 
-            // Merge lists (prioritize manual members for duplicates if any)
-            const manualIds = new Set(manualMembers.map(m => m.name + ':' + m.team));
+            // Build comprehensive member map
+            const memberMap = new Map();
 
-            // Filter out db members that are already in manual list (by name+team)
-            const filteredDbMembers = dbMembers.filter(m => !manualIds.has(m.name + ':' + m.team));
+            // 1. Add synced members first (baseline)
+            for (const m of syncedMembers) {
+                const key = `${m.team}:${m.name}`;
+                memberMap.set(key, { ...m, meditationTotal: 0, practiceTotal: 0, classTotal: 0, totalScore: 0 });
+            }
 
-            // Also merge if name matches but team is different? No, treat as different.
+            // 2. Merge activity data (scores)
+            for (const m of dbMembers) {
+                const key = `${m.team}:${m.name}`;
+                if (memberMap.has(key)) {
+                    // Update existing synced member with scores
+                    const invite = memberMap.get(key);
+                    invite.meditationTotal = m.meditationTotal;
+                    invite.practiceTotal = m.practiceTotal;
+                    invite.classTotal = m.classTotal;
+                    invite.id = m.id; // Use DB id if available (likely same prefix if generated consistently)
+                    // Actually id in syncedMembers is 'synced_...', in dbMembers is 'db_...'.
+                    // Use 'db_' if present as it's linked to activities? Or keep 'synced_'? 
+                    // Doesn't strictly matter for display.
+                } else {
+                    // Member exists in activities but not in synced list (rare, maybe manual submission with typo?)
+                    memberMap.set(key, m);
+                }
+            }
 
-            // Combine
-            const allMembers = [...manualMembers, ...filteredDbMembers];
+            // 3. Merge manual members (override or add)
+            for (const m of manualMembers) {
+                const key = `${m.team}:${m.name}`;
+                // If exists, override metadata but keep scores? 
+                // Manual members usually don't have separate scores stored in members:all, scores come from activities.
+                // But getMembers() returns simple objects causing 0 scores if we overwrite.
 
-            // Calculate totals
-            const enrichedMembers = allMembers.map(m => ({
+                let existing = memberMap.get(key);
+                if (existing) {
+                    memberMap.set(key, { ...existing, ...m, source: 'manual' });
+                } else {
+                    memberMap.set(key, { ...m, meditationTotal: 0, practiceTotal: 0, classTotal: 0, totalScore: 0 });
+                }
+            }
+
+            // Flatten and calculate totals
+            const allMembers = Array.from(memberMap.values()).map(m => ({
                 ...m,
                 totalScore: (m.meditationTotal || 0) + (m.practiceTotal || 0) + (m.classTotal || 0)
             }));
 
             // Sort by total score descending
-            enrichedMembers.sort((a, b) => b.totalScore - a.totalScore);
+            allMembers.sort((a, b) => b.totalScore - a.totalScore);
 
             return res.status(200).json({
-                count: enrichedMembers.length,
-                members: enrichedMembers
+                count: allMembers.length,
+                members: allMembers
             });
         } catch (error) {
             console.error('Get members error:', error);
