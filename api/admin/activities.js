@@ -232,8 +232,35 @@ export default async function handler(req, res) {
             // Get activities from database (synced data)
             const dbActivities = await getActivitiesFromDatabase();
 
+            // Get submissions with thoughts
+            const submissions = await getCache('submissions:all') || [];
+
+            // Create a map of submissions by name+date for quick lookup
+            const submissionMap = new Map();
+            for (const sub of submissions) {
+                const key = `${sub.name}:${sub.date}`;
+                // Store all submissions for same name+date (multiple per day possible)
+                if (!submissionMap.has(key)) {
+                    submissionMap.set(key, []);
+                }
+                submissionMap.get(key).push(sub);
+            }
+
             // Merge: database activities first, then manual overrides
-            const allActivities = [...dbActivities, ...manualActivities];
+            // Enrich with submission data (thoughts) where available
+            const allActivities = [...dbActivities, ...manualActivities].map(activity => {
+                const key = `${activity.member || activity.name}:${activity.date}`;
+                const subs = submissionMap.get(key);
+                if (subs && subs.length > 0) {
+                    // Get thoughts from submissions (combine if multiple)
+                    const thoughts = subs
+                        .filter(s => s.thoughts)
+                        .map(s => s.thoughts)
+                        .join(' | ');
+                    return { ...activity, thoughts: thoughts || undefined };
+                }
+                return activity;
+            });
 
             const { type, team, member, date, source } = req.query || {};
 
@@ -394,99 +421,118 @@ export default async function handler(req, res) {
         }
     }
 
-    // DELETE /api/admin/activities?id=xxx - Delete an activity
+    // DELETE /api/admin/activities?id=xxx or ?ids=xxx,yyy,zzz - Delete activity/activities
     if (req.method === 'DELETE') {
         try {
-            const { id } = req.query || {};
+            const { id, ids } = req.query || {};
 
-            if (!id) {
-                return res.status(400).json({ error: 'Activity ID required' });
+            // Support bulk delete with comma-separated IDs
+            let idsToDelete = [];
+            if (ids) {
+                idsToDelete = ids.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (id) {
+                idsToDelete = [id];
             }
 
-            // Check if this is a database activity (starts with db_)
-            if (id.startsWith('db_')) {
-                // Parse the ID format: db_{type}_{team}_{name}_{date}
-                const parts = id.split('_');
-                if (parts.length < 5) {
-                    return res.status(400).json({ error: 'Invalid database activity ID format' });
-                }
-
-                const type = parts[1]; // med, prac, or class
-                // The team, name, and date are joined back - they may contain underscores
-                // Format is db_{type}_{team}_{name}_{date} where date is YYYY/MM/DD
-                // Find the date part (contains /)
-                const idRemainder = parts.slice(2).join('_');
-                const dateMatch = idRemainder.match(/(\d{4}\/\d{1,2}\/\d{1,2})$/);
-                if (!dateMatch) {
-                    return res.status(400).json({ error: 'Could not parse date from activity ID' });
-                }
-                const date = dateMatch[1];
-                const teamAndName = idRemainder.slice(0, -date.length - 1); // Remove _date from end
-                // teamAndName is "{team}_{name}" - split on first _
-                const firstUnderscore = teamAndName.indexOf('_');
-                if (firstUnderscore === -1) {
-                    return res.status(400).json({ error: 'Could not parse team/name from activity ID' });
-                }
-                const team = teamAndName.slice(0, firstUnderscore);
-                const name = teamAndName.slice(firstUnderscore + 1);
-
-                // Get the appropriate data key
-                let dataKey;
-                if (type === 'med') dataKey = 'data:meditation';
-                else if (type === 'prac') dataKey = 'data:practice';
-                else if (type === 'class') dataKey = 'data:class';
-                else {
-                    return res.status(400).json({ error: `Unknown activity type: ${type}` });
-                }
-
-                // Load the data
-                const data = await getCache(dataKey);
-                if (!data || !data.members) {
-                    return res.status(404).json({ error: 'Data not found' });
-                }
-
-                // Find the member
-                const member = data.members.find(m => m.team === team && m.name === name);
-                if (!member || !member.daily || !member.daily[date]) {
-                    return res.status(404).json({ error: 'Activity not found in database' });
-                }
-
-                // Delete the daily entry
-                const deletedValue = member.daily[date];
-                delete member.daily[date];
-
-                // Recalculate total
-                member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
-
-                // Save back using setDataPermanent (need to import it)
-                const { setDataPermanent } = await import('../_lib/kv.js');
-                await setDataPermanent(dataKey, data);
-
-                return res.status(200).json({
-                    success: true,
-                    deleted: { id, type, team, name, date, value: deletedValue },
-                    message: 'Database activity deleted successfully'
-                });
+            if (idsToDelete.length === 0) {
+                return res.status(400).json({ error: 'Activity ID(s) required. Use ?id=xxx or ?ids=xxx,yyy,zzz' });
             }
 
-            // Otherwise, check manual activities
-            const activities = await getActivities();
-            const index = activities.findIndex(a => a.id === id);
+            const results = { deleted: [], failed: [] };
 
-            if (index === -1) {
-                return res.status(404).json({ error: 'Activity not found' });
+            // Load all activities once for manual deletes
+            let activities = await getActivities();
+            let activitiesModified = false;
+
+            // Process each ID
+            for (const deleteId of idsToDelete) {
+                try {
+                    if (deleteId.startsWith('db_')) {
+                        // Parse the ID format: db_{type}_{team}_{name}_{date}
+                        const parts = deleteId.split('_');
+                        if (parts.length < 5) {
+                            results.failed.push({ id: deleteId, error: 'Invalid database activity ID format' });
+                            continue;
+                        }
+
+                        const type = parts[1]; // med, prac, or class
+                        const idRemainder = parts.slice(2).join('_');
+                        const dateMatch = idRemainder.match(/(\d{4}\/\d{1,2}\/\d{1,2})$/);
+                        if (!dateMatch) {
+                            results.failed.push({ id: deleteId, error: 'Could not parse date' });
+                            continue;
+                        }
+                        const date = dateMatch[1];
+                        const teamAndName = idRemainder.slice(0, -date.length - 1);
+                        const firstUnderscore = teamAndName.indexOf('_');
+                        if (firstUnderscore === -1) {
+                            results.failed.push({ id: deleteId, error: 'Could not parse team/name' });
+                            continue;
+                        }
+                        const team = teamAndName.slice(0, firstUnderscore);
+                        const name = teamAndName.slice(firstUnderscore + 1);
+
+                        // Get the appropriate data key
+                        let dataKey;
+                        if (type === 'med') dataKey = 'data:meditation';
+                        else if (type === 'prac') dataKey = 'data:practice';
+                        else if (type === 'class') dataKey = 'data:class';
+                        else {
+                            results.failed.push({ id: deleteId, error: `Unknown type: ${type}` });
+                            continue;
+                        }
+
+                        // Load and modify data
+                        const data = await getCache(dataKey);
+                        if (!data || !data.members) {
+                            results.failed.push({ id: deleteId, error: 'Data not found' });
+                            continue;
+                        }
+
+                        const member = data.members.find(m => m.team === team && m.name === name);
+                        if (!member || !member.daily || !member.daily[date]) {
+                            results.failed.push({ id: deleteId, error: 'Activity not found' });
+                            continue;
+                        }
+
+                        const deletedValue = member.daily[date];
+                        delete member.daily[date];
+                        member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
+
+                        const { setDataPermanent } = await import('../_lib/kv.js');
+                        await setDataPermanent(dataKey, data);
+
+                        results.deleted.push({ id: deleteId, type, team, name, date, value: deletedValue });
+                    } else {
+                        // Manual activity
+                        const index = activities.findIndex(a => a.id === deleteId);
+                        if (index === -1) {
+                            results.failed.push({ id: deleteId, error: 'Activity not found' });
+                            continue;
+                        }
+
+                        const deleted = activities.splice(index, 1)[0];
+                        activitiesModified = true;
+                        results.deleted.push(deleted);
+                    }
+                } catch (innerError) {
+                    results.failed.push({ id: deleteId, error: innerError.message });
+                }
             }
 
-            const deleted = activities.splice(index, 1)[0];
-            await saveActivities(activities);
-
-            // Invalidate main data cache
-            await deleteCache(CACHE_KEYS.META);
+            // Save manual activities if modified
+            if (activitiesModified) {
+                await saveActivities(activities);
+                await deleteCache(CACHE_KEYS.META);
+            }
 
             return res.status(200).json({
                 success: true,
-                deleted,
-                message: 'Activity deleted successfully'
+                deletedCount: results.deleted.length,
+                failedCount: results.failed.length,
+                deleted: results.deleted,
+                failed: results.failed,
+                message: `Deleted ${results.deleted.length} activities${results.failed.length > 0 ? `, ${results.failed.length} failed` : ''}`
             });
         } catch (error) {
             console.error('Delete activity error:', error);

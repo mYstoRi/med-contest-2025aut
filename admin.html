@@ -547,6 +547,26 @@
             }
         }
 
+        /* Thoughts indicator tooltip */
+        .thoughts-indicator {
+            cursor: help;
+            font-size: 1rem;
+            margin-left: 4px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .thoughts-indicator:hover {
+            opacity: 1;
+        }
+
+        /* Activity checkbox styling */
+        .activity-checkbox {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             .admin-container {
@@ -703,11 +723,15 @@
                         <option value="">全部隊伍 All Teams</option>
                         <!-- Teams loaded dynamically -->
                     </select>
+                    <button id="bulkDeleteBtn" class="action-btn danger" onclick="bulkDeleteActivities()"
+                        style="display: none;">🗑️ 刪除選取</button>
                 </div>
 
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th style="width: 30px;"><input type="checkbox" id="selectAllCheckbox"
+                                    onchange="toggleSelectAll()" title="全選"></th>
                             <th>隊伍</th>
                             <th>成員</th>
                             <th>日期</th>
@@ -717,7 +741,7 @@
                     </thead>
                     <tbody id="activitiesTable">
                         <tr>
-                            <td colspan="5" style="text-align: center;">載入中...</td>
+                            <td colspan="6" style="text-align: center;">載入中...</td>
                         </tr>
                     </tbody>
                 </table>

@@ -129,10 +129,13 @@ export default async function handler(req, res) {
 
         console.log(`📝 Meditation saved: ${name} - ${dateKey} - ${durationNum} min (total: ${member.total})`);
 
-        // Build the record for response
-        const record = {
-            timestamp: timestamp || new Date().toISOString(),
+        // Store individual submission record (for afterthoughts/history)
+        const submissionId = 'sub_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+        const submission = {
+            id: submissionId,
+            type: 'meditation',
             name,
+            team: member.team,
             date: dateKey,
             duration: durationNum,
             timeOfDay,
@@ -141,14 +144,26 @@ export default async function handler(req, res) {
             submittedAt: new Date().toISOString()
         };
 
+        // Get existing submissions and add new one
+        let submissions = await getCache('submissions:all') || [];
+        submissions.unshift(submission); // Add to beginning (newest first)
+        // Keep only last 500 submissions to prevent unbounded growth
+        if (submissions.length > 500) {
+            submissions = submissions.slice(0, 500);
+        }
+        await setDataPermanent('submissions:all', submissions);
+
+        console.log(`📝 Submission stored: ${submissionId}`);
+
         return res.status(200).json({
             success: true,
             message: 'Meditation record saved successfully',
             record: {
-                name: record.name,
-                date: record.date,
-                duration: record.duration,
-                timeOfDay: record.timeOfDay,
+                id: submissionId,
+                name: submission.name,
+                date: submission.date,
+                duration: submission.duration,
+                timeOfDay: submission.timeOfDay,
                 newTotal: member.total
             }
         });

@@ -150,21 +150,29 @@ function renderActivities() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">暫無活動記錄</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">暫無活動記錄</td></tr>';
+        updateBulkDeleteUI();
         return;
     }
 
-    tbody.innerHTML = filtered.map(activity => `
+    tbody.innerHTML = filtered.map(activity => {
+        const thoughtsHtml = activity.thoughts
+            ? `<span class="thoughts-indicator" title="${escapeHtml(activity.thoughts)}">💭</span>`
+            : '';
+        return `
         <tr>
+            <td><input type="checkbox" class="activity-checkbox" data-id="${activity.id}" onchange="updateBulkDeleteUI()"></td>
             <td>${renderTeamBadge(activity.team)}</td>
             <td>${activity.member}</td>
             <td>${formatActivityDate(activity.date)}</td>
-            <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)}</td>
+            <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)} ${thoughtsHtml}</td>
             <td>
                 <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
+
+    updateBulkDeleteUI();
 }
 
 function getTeamShortName(teamName) {
@@ -268,6 +276,67 @@ async function deleteActivity(id) {
 
 // Make deleteActivity available globally for onclick
 window.deleteActivity = deleteActivity;
+
+// ========================================
+// Bulk Delete Functions
+// ========================================
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function updateBulkDeleteUI() {
+    const checkboxes = document.querySelectorAll('.activity-checkbox:checked');
+    const bulkDeleteBtn = $('bulkDeleteBtn');
+    const selectAllCheckbox = $('selectAllCheckbox');
+
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.style.display = checkboxes.length > 0 ? 'inline-block' : 'none';
+        bulkDeleteBtn.textContent = `🗑️ 刪除選取 (${checkboxes.length})`;
+    }
+
+    // Update select all checkbox state
+    if (selectAllCheckbox) {
+        const allCheckboxes = document.querySelectorAll('.activity-checkbox');
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = $('selectAllCheckbox');
+    const checkboxes = document.querySelectorAll('.activity-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+    updateBulkDeleteUI();
+}
+
+async function bulkDeleteActivities() {
+    const checkboxes = document.querySelectorAll('.activity-checkbox:checked');
+    if (checkboxes.length === 0) return;
+
+    if (!confirm(`確定要刪除 ${checkboxes.length} 筆活動記錄嗎？\nDelete ${checkboxes.length} activities?`)) return;
+
+    const ids = Array.from(checkboxes).map(cb => cb.dataset.id);
+
+    try {
+        const result = await apiCall(`/activities?ids=${ids.join(',')}`, { method: 'DELETE' });
+        showToast(`已刪除 ${result.deletedCount} 筆記錄${result.failedCount > 0 ? `，${result.failedCount} 筆失敗` : ''}`);
+        loadActivities();
+    } catch (error) {
+        showToast(`刪除失敗: ${error.message}`, 'error');
+    }
+}
+
+// Make functions available globally
+window.updateBulkDeleteUI = updateBulkDeleteUI;
+window.toggleSelectAll = toggleSelectAll;
+window.bulkDeleteActivities = bulkDeleteActivities;
 
 // ========================================
 // Members
