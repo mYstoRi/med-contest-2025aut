@@ -512,10 +512,63 @@ export default async function handler(req, res) {
         }
     }
 
-    // DELETE /api/admin/activities?id=xxx or ?ids=xxx,yyy,zzz - Delete activity/activities
+    // DELETE /api/admin/activities?id=xxx or ?ids=xxx,yyy,zzz or ?deleteBefore=MM/DD - Delete activity/activities
     if (req.method === 'DELETE') {
         try {
-            const { id, ids } = req.query || {};
+            const { id, ids, deleteBefore } = req.query || {};
+
+            // Date-based bulk delete for submissions
+            if (deleteBefore) {
+                // Parse the deleteBefore date (MM/DD or YYYY/MM/DD)
+                const parts = deleteBefore.split('/');
+                let targetMonth, targetDay;
+                if (parts.length === 3) {
+                    targetMonth = parseInt(parts[1], 10);
+                    targetDay = parseInt(parts[2], 10);
+                } else if (parts.length === 2) {
+                    targetMonth = parseInt(parts[0], 10);
+                    targetDay = parseInt(parts[1], 10);
+                } else {
+                    return res.status(400).json({ error: 'Invalid date format. Use MM/DD or YYYY/MM/DD' });
+                }
+
+                // Load submissions
+                const submissions = await getCache('submissions:all') || [];
+                const originalCount = submissions.length;
+
+                // Filter to keep only submissions ON or AFTER the cutoff date
+                const filtered = submissions.filter(sub => {
+                    const subParts = (sub.date || '').split('/');
+                    let subMonth, subDay;
+                    if (subParts.length === 3) {
+                        subMonth = parseInt(subParts[1], 10);
+                        subDay = parseInt(subParts[2], 10);
+                    } else if (subParts.length === 2) {
+                        subMonth = parseInt(subParts[0], 10);
+                        subDay = parseInt(subParts[1], 10);
+                    } else {
+                        return true; // Keep invalid dates
+                    }
+                    // Keep if date >= cutoff
+                    if (subMonth > targetMonth) return true;
+                    if (subMonth < targetMonth) return false;
+                    return subDay >= targetDay;
+                });
+
+                const deletedCount = originalCount - filtered.length;
+
+                // Save filtered submissions
+                const { setDataPermanent } = await import('../_lib/kv.js');
+                await setDataPermanent('submissions:all', filtered);
+
+                console.log(`🗑️ Bulk delete: removed ${deletedCount} submissions before ${deleteBefore}`);
+                return res.status(200).json({
+                    success: true,
+                    deletedCount,
+                    remainingCount: filtered.length,
+                    message: `Deleted ${deletedCount} submissions before ${deleteBefore}`
+                });
+            }
 
             // Support bulk delete with comma-separated IDs
             let idsToDelete = [];
@@ -526,7 +579,7 @@ export default async function handler(req, res) {
             }
 
             if (idsToDelete.length === 0) {
-                return res.status(400).json({ error: 'Activity ID(s) required. Use ?id=xxx or ?ids=xxx,yyy,zzz' });
+                return res.status(400).json({ error: 'Activity ID(s) required. Use ?id=xxx or ?ids=xxx,yyy,zzz or ?deleteBefore=MM/DD' });
             }
 
             const results = { deleted: [], failed: [] };
