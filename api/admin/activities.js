@@ -267,29 +267,74 @@ export default async function handler(req, res) {
                 console.log(`📋 Submission keys (sample): ${sampleKeys.join(', ')}`);
             }
 
-            // Merge: database activities first, then manual overrides
-            // Enrich with submission data (thoughts) where available
-            let matchCount = 0;
-            const allActivities = [...dbActivities, ...manualActivities].map((activity, idx) => {
-                const normalizedDate = normalizeDate(activity.date);
-                const key = `${activity.member || activity.name}:${normalizedDate}`;
-                // Debug: show first 3 activity keys
-                if (idx < 3) {
-                    console.log(`📝 Activity key: "${key}" (member="${activity.member}", date="${activity.date}" -> "${normalizedDate}")`);
+            // Convert submissions to activities (these are the most up-to-date)
+            const submissionActivities = submissions
+                .filter(sub => sub.type === 'meditation' && sub.duration > 0)
+                .map(sub => ({
+                    id: sub.id || `sub_${sub.name}_${sub.date}`,
+                    type: 'meditation',
+                    team: sub.team || '',
+                    member: sub.name,
+                    date: normalizeDate(sub.date),
+                    value: sub.duration || sub.minutes,
+                    thoughts: sub.thoughts || undefined,
+                    timeOfDay: sub.timeOfDay || undefined,
+                    shareConsent: sub.shareConsent || undefined,
+                    source: sub.source || 'submission'
+                }));
+
+            console.log(`📝 Submissions converted to activities: ${submissionActivities.length}`);
+
+            // Create a set of submission keys to avoid duplicates
+            const submissionKeys = new Set();
+            for (const sub of submissionActivities) {
+                const key = `${sub.member}:${sub.date}`;
+                submissionKeys.add(key);
+            }
+
+            // Merge: filter out database activities that are already in submissions
+            // Database activities may have team info that submissions don't have
+            const mergedDbActivities = dbActivities
+                .map(activity => {
+                    const normalizedDate = normalizeDate(activity.date);
+                    const key = `${activity.member || activity.name}:${normalizedDate}`;
+
+                    // Check if this activity has a corresponding submission
+                    const subs = submissionMap.get(key);
+                    if (subs && subs.length > 0) {
+                        // Enrich with submission data
+                        const sub = subs[0];
+                        return {
+                            ...activity,
+                            date: normalizedDate,
+                            thoughts: subs.filter(s => s.thoughts).map(s => s.thoughts).join(' | ') || undefined,
+                            timeOfDay: sub.timeOfDay || undefined,
+                        };
+                    }
+                    return { ...activity, date: normalizedDate };
+                })
+                .filter(activity => {
+                    // Remove db activities that are duplicates of submission activities
+                    const key = `${activity.member || activity.name}:${activity.date}`;
+                    return !submissionKeys.has(key);
+                });
+
+            // Look up team info for submission activities (from database member data)
+            const teamLookup = {};
+            for (const act of dbActivities) {
+                if (act.member && act.team) {
+                    teamLookup[act.member] = act.team;
                 }
-                const subs = submissionMap.get(key);
-                if (subs && subs.length > 0) {
-                    matchCount++;
-                    // Get thoughts from submissions (combine if multiple)
-                    const thoughts = subs
-                        .filter(s => s.thoughts)
-                        .map(s => s.thoughts)
-                        .join(' | ');
-                    return { ...activity, thoughts: thoughts || undefined };
+            }
+            for (const sub of submissionActivities) {
+                if (!sub.team && teamLookup[sub.member]) {
+                    sub.team = teamLookup[sub.member];
                 }
-                return activity;
-            });
-            console.log(`🔗 Matched ${matchCount} activities with submissions`);
+            }
+
+            // Combine all activities
+            const allActivities = [...submissionActivities, ...mergedDbActivities, ...manualActivities];
+            console.log(`📊 Total activities: ${allActivities.length} (${submissionActivities.length} submissions + ${mergedDbActivities.length} db + ${manualActivities.length} manual)`);
 
             const { type, team, member, date, source } = req.query || {};
 
