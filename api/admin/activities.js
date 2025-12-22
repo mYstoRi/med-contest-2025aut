@@ -716,27 +716,34 @@ export default async function handler(req, res) {
                             if (!meditationLoaded) {
                                 meditationData = await getCache('data:meditation');
                                 meditationLoaded = true;
+                                console.log(`🗑️ Loaded meditation data with ${meditationData?.members?.length || 0} members`);
                             }
 
+                            let thisDeleted = false;
                             if (meditationData?.members) {
                                 const member = meditationData.members.find(m => m.name === name);
                                 if (member?.daily) {
                                     // Try to find and delete the date entry
                                     const dateKeys = Object.keys(member.daily);
                                     for (const dk of dateKeys) {
-                                        if (normDate(dk) === date) {
+                                        const normalizedDk = normDate(dk);
+                                        if (normalizedDk === date) {
+                                            console.log(`🗑️ Deleting db entry: ${name} @ ${dk} -> ${date}`);
                                             delete member.daily[dk];
                                             member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
                                             meditationModified = true;
+                                            thisDeleted = true;
                                             break;
                                         }
                                     }
+                                } else {
+                                    console.log(`🗑️ DB: Member ${name} not found or no daily data`);
                                 }
                             }
                         }
 
-                        if (submissionsData.length < originalLength || meditationModified) {
-                            if (submissionsData.length < originalLength) submissionsModified = true;
+                        if (submissionsData.length < originalLength) {
+                            submissionsModified = true;
                             results.deleted.push({ id: deleteId, source: 'submission' });
                         } else {
                             results.failed.push({ id: deleteId, error: 'Submission not found' });
