@@ -532,41 +532,62 @@ export default async function handler(req, res) {
                     return res.status(400).json({ error: 'Invalid date format. Use MM/DD or YYYY/MM/DD' });
                 }
 
-                // Load submissions
-                const submissions = await getCache('submissions:all') || [];
-                const originalCount = submissions.length;
-
-                // Filter to keep only submissions ON or AFTER the cutoff date
-                const filtered = submissions.filter(sub => {
-                    const subParts = (sub.date || '').split('/');
-                    let subMonth, subDay;
-                    if (subParts.length === 3) {
-                        subMonth = parseInt(subParts[1], 10);
-                        subDay = parseInt(subParts[2], 10);
-                    } else if (subParts.length === 2) {
-                        subMonth = parseInt(subParts[0], 10);
-                        subDay = parseInt(subParts[1], 10);
+                // Helper to check if date is before cutoff
+                const isBeforeCutoff = (dateStr) => {
+                    const dateParts = (dateStr || '').split('/');
+                    let dateMonth, dateDay;
+                    if (dateParts.length === 3) {
+                        dateMonth = parseInt(dateParts[1], 10);
+                        dateDay = parseInt(dateParts[2], 10);
+                    } else if (dateParts.length === 2) {
+                        dateMonth = parseInt(dateParts[0], 10);
+                        dateDay = parseInt(dateParts[1], 10);
                     } else {
-                        return true; // Keep invalid dates
+                        return false; // Keep invalid dates
                     }
-                    // Keep if date >= cutoff
-                    if (subMonth > targetMonth) return true;
-                    if (subMonth < targetMonth) return false;
-                    return subDay >= targetDay;
-                });
+                    if (dateMonth < targetMonth) return true;
+                    if (dateMonth > targetMonth) return false;
+                    return dateDay < targetDay;
+                };
 
-                const deletedCount = originalCount - filtered.length;
+                // 1. Clean submissions:all
+                const submissions = await getCache('submissions:all') || [];
+                const originalSubCount = submissions.length;
+                const filteredSubs = submissions.filter(sub => !isBeforeCutoff(sub.date));
 
-                // Save filtered submissions
+                // 2. Clean data:meditation
+                const meditation = await getCache('data:meditation');
+                let meditationDeleted = 0;
+                if (meditation?.members) {
+                    for (const member of meditation.members) {
+                        if (member.daily) {
+                            const dailyEntries = Object.keys(member.daily);
+                            for (const date of dailyEntries) {
+                                if (isBeforeCutoff(date)) {
+                                    delete member.daily[date];
+                                    meditationDeleted++;
+                                }
+                            }
+                            member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
+                        }
+                    }
+                }
+
+                // Save both
                 const { setDataPermanent } = await import('../_lib/kv.js');
-                await setDataPermanent('submissions:all', filtered);
+                await Promise.all([
+                    setDataPermanent('submissions:all', filteredSubs),
+                    meditation ? setDataPermanent('data:meditation', meditation) : Promise.resolve(),
+                ]);
 
-                console.log(`🗑️ Bulk delete: removed ${deletedCount} submissions before ${deleteBefore}`);
+                const deletedSubCount = originalSubCount - filteredSubs.length;
+                console.log(`🗑️ Bulk delete: removed ${deletedSubCount} submissions + ${meditationDeleted} db entries before ${deleteBefore}`);
                 return res.status(200).json({
                     success: true,
-                    deletedCount,
-                    remainingCount: filtered.length,
-                    message: `Deleted ${deletedCount} submissions before ${deleteBefore}`
+                    deletedSubmissions: deletedSubCount,
+                    deletedDbEntries: meditationDeleted,
+                    remainingSubmissions: filteredSubs.length,
+                    message: `Deleted ${deletedSubCount} submissions + ${meditationDeleted} database entries before ${deleteBefore}`
                 });
             }
 
