@@ -54,7 +54,7 @@ export default async function handler(req, res) {
             practice: { members: [] },
             class: { members: [] },
             recentActivity: [],
-            syncedAt: meta.syncedAt || new Date().toISOString()
+            syncedAt: (meta && meta.syncedAt) || new Date().toISOString()
         };
 
         // Aggregation maps
