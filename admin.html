@@ -634,6 +634,52 @@
             font-style: italic;
         }
 
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background-color: #f59e0b;
+        }
+
+        .toggle-switch input:checked+.toggle-slider:before {
+            transform: translateX(26px);
+        }
+
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
             .admin-container {
@@ -959,6 +1005,27 @@
 
         <!-- Sync Panel -->
         <div id="syncPanel" class="tab-panel">
+            <!-- Maintenance Mode Toggle -->
+            <div class="admin-card"
+                style="margin-bottom: var(--spacing-lg); border: 2px solid var(--warning-color, #f59e0b);">
+                <div class="card-header">
+                    <h2 class="card-title">🔧 維護模式 Maintenance Mode</h2>
+                </div>
+                <div style="padding: var(--spacing-md);">
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">
+                        啟用後，所有訪客將看到維護中訊息。管理後台仍可正常使用。<br>
+                        When enabled, all visitors will see a maintenance message. Admin panel remains accessible.
+                    </p>
+                    <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenanceMode()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span id="maintenanceStatus" style="font-weight: bold;">已停用 OFF</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="admin-card">
                 <div class="card-header">
                     <h2 class="card-title">🔄 同步 Google Sheets Data Sync</h2>

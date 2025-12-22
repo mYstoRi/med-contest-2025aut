@@ -241,6 +241,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     initSettings();
 
+    // Check maintenance mode first
+    try {
+        const settingsResp = await fetch('/api/admin/settings');
+        const settings = await settingsResp.json();
+        if (settings.maintenanceMode) {
+            showMaintenanceMode(settings.maintenanceMessage);
+            return; // Don't initialize form
+        }
+    } catch (error) {
+        console.warn('Failed to check maintenance status:', error);
+    }
+
     // Load members for dropdown
     await loadMembers();
 
@@ -263,3 +275,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     console.log('Meditation registration form initialized');
 });
+
+// Show maintenance mode overlay
+function showMaintenanceMode(message) {
+    const overlay = document.createElement('div');
+    overlay.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+            <div style="text-align: center; color: white; padding: 3rem;">
+                <div style="font-size: 5rem; margin-bottom: 1rem;">🔧</div>
+                <h1 style="font-size: 2rem; margin-bottom: 1rem; background: linear-gradient(90deg, #8b5cf6, #22d3ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">維護中 Under Maintenance</h1>
+                <p style="font-size: 1.2rem; opacity: 0.8; white-space: pre-line;">${message || '網站維護中，請稍後再試。'}</p>
+                <a href="./" style="display: inline-block; margin-top: 2rem; color: #22d3ee; text-decoration: none;">← 返回首頁 Back Home</a>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}

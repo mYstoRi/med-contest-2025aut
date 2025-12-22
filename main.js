@@ -483,12 +483,25 @@ async function loadData() {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Initialize theme first (sync, fast)
     initTheme();
     initSettings();
 
     console.log('🧘 Meditation Dashboard initialized');
+
+    // Check maintenance mode first
+    try {
+        const settingsResp = await fetch('/api/admin/settings');
+        const settings = await settingsResp.json();
+        if (settings.maintenanceMode) {
+            showMaintenanceMode(settings.maintenanceMessage);
+            return; // Don't load data
+        }
+    } catch (error) {
+        console.warn('Failed to check maintenance status:', error);
+        // Continue anyway if check fails
+    }
 
     // Load data (async, may take time)
     loadData();
@@ -497,3 +510,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const REFRESH_INTERVAL = 5 * 60 * 1000;
     setInterval(loadData, REFRESH_INTERVAL);
 });
+
+// Show maintenance mode overlay
+function showMaintenanceMode(message) {
+    const overlay = document.createElement('div');
+    overlay.className = 'maintenance-overlay';
+    overlay.innerHTML = `
+        <div class="maintenance-content">
+            <div class="maintenance-icon">🔧</div>
+            <h1>維護中 Under Maintenance</h1>
+            <p>${message || '網站維護中，請稍後再試。\nSite under maintenance, please try again later.'}</p>
+        </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .maintenance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .maintenance-content {
+            text-align: center;
+            color: white;
+            padding: 3rem;
+        }
+        .maintenance-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        .maintenance-content h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #8b5cf6, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .maintenance-content p {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            white-space: pre-line;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(overlay);
+
+    // Hide main content
+    const mainContent = document.querySelector('.container') || document.querySelector('main');
+    if (mainContent) mainContent.style.display = 'none';
+}

@@ -115,7 +115,61 @@ function showDashboard() {
     // Load initial data
     loadActivities();
     populateTeamDropdowns();
+    loadMaintenanceStatus();
 }
+
+// ========================================
+// Maintenance Mode
+// ========================================
+async function loadMaintenanceStatus() {
+    try {
+        const response = await fetch('/api/admin/settings');
+        const data = await response.json();
+
+        const toggle = $('maintenanceToggle');
+        const status = $('maintenanceStatus');
+
+        if (toggle) {
+            toggle.checked = data.maintenanceMode;
+        }
+        if (status) {
+            status.textContent = data.maintenanceMode ? '🔴 已啟用 ON' : '🟢 已停用 OFF';
+            status.style.color = data.maintenanceMode ? '#f59e0b' : '#10b981';
+        }
+    } catch (error) {
+        console.error('Failed to load maintenance status:', error);
+    }
+}
+
+async function toggleMaintenanceMode() {
+    const toggle = $('maintenanceToggle');
+    const newState = toggle.checked;
+
+    // Confirm if enabling
+    if (newState) {
+        const confirmed = confirm('確定要啟用維護模式嗎？\n所有訪客將看到維護中訊息。\n\nEnable maintenance mode?\nAll visitors will see a maintenance message.');
+        if (!confirmed) {
+            toggle.checked = false;
+            return;
+        }
+    }
+
+    try {
+        await apiCall('/settings', {
+            method: 'POST',
+            body: JSON.stringify({ maintenanceMode: newState }),
+        });
+
+        showToast(newState ? '維護模式已啟用 Maintenance mode enabled' : '維護模式已停用 Maintenance mode disabled');
+        loadMaintenanceStatus();
+    } catch (error) {
+        showToast(`失敗: ${error.message}`, 'error');
+        // Revert toggle
+        toggle.checked = !newState;
+    }
+}
+
+window.toggleMaintenanceMode = toggleMaintenanceMode;
 
 // ========================================
 // Activities
