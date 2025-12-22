@@ -28,7 +28,7 @@ function renderTeamBars(teamScores) {
 
     // Find max score for percentage calculation (minimum 2500 so bars don't reach top)
     const scores = Object.values(teamScores);
-    const maxScore = Math.max(...scores, 2500);
+    const maxScore = Math.max(...scores, 1) * 1.2;
 
     // Sort teams by score (descending)
     const sortedTeams = Object.entries(teamScores)

@@ -42,7 +42,7 @@ function renderChart(data) {
     });
 
     // Get max cumulative value for y-axis (minimum 2500 so bars don't reach top)
-    const maxValue = Math.max(...stackedData.map(d => d.total), 2500);
+    const maxValue = Math.max(...stackedData.map(d => d.total), 1) * 1.2;
 
     // Scale functions
     const xScale = (i) => padding.left + (i / Math.max(data.length - 1, 1)) * chartWidth;
