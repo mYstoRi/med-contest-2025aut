@@ -133,7 +133,13 @@ function parseClassSheet(csvText) {
 
 function parseFormResponses(csvText) {
     const lines = csvText.split('\n').map(parseCSVLine);
-    const activities = [];
+    const submissions = [];
+
+    // Expected columns from Google Form:
+    // 0: Timestamp, 1: Name, 2: Date, 3: Duration/Minutes, 4: TimeOfDay, 5: Thoughts, 6: ShareConsent, 7: Team (optional)
+    // But the actual order may vary - check the header row
+    const header = lines[0] || [];
+    console.log('Form response headers:', header);
 
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
@@ -143,22 +149,37 @@ function parseFormResponses(csvText) {
         const name = row[1];
         const date = row[2];
         const minutes = parseFloat(row[3]) || 0;
-        const team = row[4] || '';
 
         if (!name || !date || minutes <= 0) continue;
 
-        activities.push({
+        // Try to get additional columns if they exist
+        const timeOfDay = row[4] || '';
+        const thoughts = row[5] || '';
+        const shareConsent = row[6] || '';
+        const team = row[7] || row[4] || ''; // Team might be in different positions
+
+        // Generate a unique ID for this submission
+        const id = 'sub_sync_' + Date.now().toString(36) + '_' + i;
+
+        submissions.push({
+            id,
             type: 'meditation',
             name,
             team,
             date,
+            duration: minutes,
             minutes,
             points: minutes,
+            timeOfDay,
+            thoughts,
+            shareConsent,
             timestamp,
+            submittedAt: timestamp,
+            source: 'sheets'
         });
     }
 
-    activities.sort((a, b) => {
+    submissions.sort((a, b) => {
         const parseTs = (ts) => {
             if (!ts) return 0;
             try {
@@ -179,7 +200,7 @@ function parseFormResponses(csvText) {
         return parseTs(b.timestamp) - parseTs(a.timestamp);
     });
 
-    return activities.slice(0, 50);
+    return submissions;
 }
 
 async function fetchFromSheets() {
@@ -258,9 +279,11 @@ export default async function handler(req, res) {
                 setDataPermanent(DATA_KEYS.MEDITATION, sheetData.meditation),
                 setDataPermanent(DATA_KEYS.PRACTICE, sheetData.practice),
                 setDataPermanent(DATA_KEYS.CLASS, sheetData.class),
+                // Store form responses with thoughts to submissions:all
+                setDataPermanent('submissions:all', sheetData.recentActivity),
                 setCacheMeta({
                     syncedAt: sheetData.syncedAt,
-                    recentActivity: sheetData.recentActivity,
+                    recentActivity: sheetData.recentActivity.slice(0, 50), // Keep recent 50 for display
                     lastSyncMode: 'overwrite',
                 }),
             ]);
@@ -318,14 +341,30 @@ export default async function handler(req, res) {
             const mergedPrac = mergeMembers(existingPrac, sheetData.practice);
             const mergedClass = mergeMembers(existingClass, sheetData.class);
 
+            // Merge submissions: combine existing with new, dedupe by timestamp+name
+            const existingSubmissions = await getCache('submissions:all') || [];
+            const existingSubMap = new Map();
+            for (const sub of existingSubmissions) {
+                const key = `${sub.name}:${sub.timestamp || sub.submittedAt}`;
+                existingSubMap.set(key, sub);
+            }
+            for (const sub of sheetData.recentActivity) {
+                const key = `${sub.name}:${sub.timestamp || sub.submittedAt}`;
+                existingSubMap.set(key, sub);
+            }
+            const mergedSubmissions = Array.from(existingSubMap.values())
+                .sort((a, b) => new Date(b.submittedAt || b.timestamp) - new Date(a.submittedAt || a.timestamp))
+                .slice(0, 500); // Keep max 500
+
             console.log('💾 Saving merged data...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, mergedMed),
                 setDataPermanent(DATA_KEYS.PRACTICE, mergedPrac),
                 setDataPermanent(DATA_KEYS.CLASS, mergedClass),
+                setDataPermanent('submissions:all', mergedSubmissions),
                 setCacheMeta({
                     syncedAt: sheetData.syncedAt,
-                    recentActivity: sheetData.recentActivity,
+                    recentActivity: mergedSubmissions.slice(0, 50),
                     lastSyncMode: 'merge',
                 }),
             ]);
