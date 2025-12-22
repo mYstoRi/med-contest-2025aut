@@ -254,10 +254,16 @@ export default async function handler(req, res) {
 
             // Merge: database activities first, then manual overrides
             // Enrich with submission data (thoughts) where available
-            const allActivities = [...dbActivities, ...manualActivities].map(activity => {
+            let matchCount = 0;
+            const allActivities = [...dbActivities, ...manualActivities].map((activity, idx) => {
                 const key = `${activity.member || activity.name}:${activity.date}`;
+                // Debug: show first 3 activity keys
+                if (idx < 3) {
+                    console.log(`📝 Activity key: "${key}" (member="${activity.member}", name="${activity.name}", date="${activity.date}")`);
+                }
                 const subs = submissionMap.get(key);
                 if (subs && subs.length > 0) {
+                    matchCount++;
                     // Get thoughts from submissions (combine if multiple)
                     const thoughts = subs
                         .filter(s => s.thoughts)
@@ -267,6 +273,7 @@ export default async function handler(req, res) {
                 }
                 return activity;
             });
+            console.log(`🔗 Matched ${matchCount} activities with submissions`);
 
             const { type, team, member, date, source } = req.query || {};
 
