@@ -77,7 +77,10 @@ export default async function handler(req, res) {
     // GET /api/admin/activities - Get all activities
     if (req.method === 'GET') {
         try {
+            console.time('getActivities');
             let activities = await getActivities();
+            console.timeEnd('getActivities');
+            console.log(`📊 Loaded ${activities.length} activities`);
 
             // Parse query parameters for filtering
             const { type, team, member, date, source } = req.query || {};

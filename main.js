@@ -518,6 +518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const settingsResp = await fetch('/api/admin/settings');
         const settings = await settingsResp.json();
+        console.log('🔧 Settings loaded:', settings);
 
         // Show announcement if exists
         const announcementBoard = document.getElementById('announcementBoard');
