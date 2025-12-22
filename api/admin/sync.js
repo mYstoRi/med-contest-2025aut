@@ -153,9 +153,9 @@ function parseFormResponses(csvText) {
         if (!name || !date || minutes <= 0) continue;
 
         // Try to get additional columns if they exist
-        // Columns: 0=Timestamp, 1=Name, 2=Date, 3=Minutes, 4=TimeOfDay, 5=Thoughts, 6=ShareConsent
-        const timeOfDay = row[4] || '';
-        const thoughts = row[5] || '';
+        // Columns: 0=Timestamp, 1=Name, 2=Date, 3=Minutes, 4=Thoughts, 5=TimeOfDay, 6=ShareConsent
+        const thoughts = row[4] || '';
+        const timeOfDay = row[5] || '';
         const shareConsent = row[6] || '';
         const team = ''; // No team column in form - will be looked up from member data later
 
