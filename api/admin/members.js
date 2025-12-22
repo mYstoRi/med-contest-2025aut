@@ -154,7 +154,10 @@ export default async function handler(req, res) {
             // Sort by total score descending
             enrichedMembers.sort((a, b) => b.totalScore - a.totalScore);
 
-            return res.status(200).json(enrichedMembers);
+            return res.status(200).json({
+                count: enrichedMembers.length,
+                members: enrichedMembers
+            });
         } catch (error) {
             console.error('Get members error:', error);
             return res.status(500).json({ error: 'Failed to get members' });
