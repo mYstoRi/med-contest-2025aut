@@ -1,8 +1,7 @@
-import { createClient } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 
-// Configure KV client using Upstash Redis environment variables
-// @vercel/kv expects KV_REST_API_URL/TOKEN but we have UPSTASH_REDIS_REST_URL/TOKEN
-const kv = createClient({
+// Configure Redis client using Upstash environment variables
+const kv = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
