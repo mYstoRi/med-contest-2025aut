@@ -47,10 +47,20 @@ export default async function handler(req, res) {
             return dateStr;
         };
 
-        // Build team lookup from meditation sheet data
+        // Build team lookup from meditation sheet data AND manual members database
         const teamLookup = {};
         const medData = meditation || { dates: [], members: [] };
+
+        // First, add from meditation sheet
         for (const member of medData.members || []) {
+            if (member.name && member.team) {
+                teamLookup[member.name] = member.team;
+            }
+        }
+
+        // Then, add from manual members (these take precedence as they're explicitly managed)
+        const manualMembersList = manualMembers || [];
+        for (const member of manualMembersList) {
             if (member.name && member.team) {
                 teamLookup[member.name] = member.team;
             }

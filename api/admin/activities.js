@@ -232,8 +232,12 @@ export default async function handler(req, res) {
             // Get activities from database (synced data)
             const dbActivities = await getActivitiesFromDatabase();
 
-            // Get submissions with thoughts
-            const submissions = await getCache('submissions:all') || [];
+            // Get submissions with thoughts and manual members
+            const [submissions, manualMembers] = await Promise.all([
+                getCache('submissions:all'),
+                getCache('members:all'),
+            ]);
+            const submissionsList = submissions || [];
 
             // Create a map of submissions by name+date for quick lookup
             const submissionMap = new Map();
@@ -251,7 +255,7 @@ export default async function handler(req, res) {
                 return dateStr;
             };
 
-            for (const sub of submissions) {
+            for (const sub of submissionsList) {
                 const normalizedDate = normalizeDate(sub.date);
                 const key = `${sub.name}:${normalizedDate}`;
                 // Store all submissions for same name+date (multiple per day possible)
@@ -268,7 +272,7 @@ export default async function handler(req, res) {
             }
 
             // Convert submissions to activities (these are the most up-to-date)
-            const submissionActivities = submissions
+            const submissionActivities = submissionsList
                 .filter(sub => sub.type === 'meditation' && sub.duration > 0)
                 .map(sub => ({
                     id: sub.id || `sub_${sub.name}_${sub.date}`,
@@ -319,13 +323,22 @@ export default async function handler(req, res) {
                     return !submissionKeys.has(key);
                 });
 
-            // Look up team info for submission activities (from database member data)
+            // Look up team info for submission activities (from database + manual members)
             const teamLookup = {};
+            // First from database activities
             for (const act of dbActivities) {
                 if (act.member && act.team) {
                     teamLookup[act.member] = act.team;
                 }
             }
+            // Then from manual members (these take precedence as they're explicitly managed)
+            const manualMembersList = manualMembers || [];
+            for (const member of manualMembersList) {
+                if (member.name && member.team) {
+                    teamLookup[member.name] = member.team;
+                }
+            }
+            // Apply team lookup to submission activities
             for (const sub of submissionActivities) {
                 if (!sub.team && teamLookup[sub.member]) {
                     sub.team = teamLookup[sub.member];
