@@ -78,10 +78,56 @@ function calculateStreaks(meditationDaily, practiceSessions, classSessions) {
 // Weekly Summary Cards Rendering
 // ========================================
 function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
-    // Competition period: Dec 8, 2025 to Jan 25, 2026
-    const startDate = new Date(2025, 11, 8); // Dec 8, 2025
-    const endDate = new Date(2026, 0, 25);   // Jan 25, 2026
+    // 1. Collect all dates to find the earliest one
+    const allDates = new Set();
+
+    // Add meditation dates (YYYY/MM/DD or M/D)
+    Object.keys(dailyData).forEach(d => allDates.add(d));
+
+    // Add practice dates
+    practiceSessions.forEach(s => allDates.add(s.date));
+
+    // Add class dates
+    classSessions.forEach(s => allDates.add(s.date));
+
+    // Find min date
+    let minDate = new Date(2025, 11, 8); // Default Dec 8, 2025
+
+    if (allDates.size > 0) {
+        const sortedDates = Array.from(allDates)
+            .map(d => parseDate(d))
+            .filter(d => d !== null)
+            .sort((a, b) => a - b);
+
+        if (sortedDates.length > 0) {
+            minDate = new Date(sortedDates[0]);
+        }
+    }
+
+    // Adjust to Monday of that week
+    // Day: 0 (Sun) to 6 (Sat). We want Monday (1) as start.
+    const day = minDate.getDay(); // 0-6
+    const diff = minDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    // Wait, if Sunday (0), we want previous Monday (-6).
+    // If Monday (1), diff = 1 - 1 + 1 = 1 (No change? No, getDate - 0).
+    // If Monday (1): current - 1 + 1 = current.
+    // If Tuesday (2): current - 2 + 1 = current - 1 (Monday).
+    // If Sunday (0): current - 0 + (-6) = current - 6. 
+    // Example: Sunday Dec 14. Prev Monday is Dec 8. 14 - 6 = 8. Correct.
+
+    const startDate = new Date(minDate);
+    startDate.setDate(diff);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(2026, 0, 25);   // Jan 25, 2026 (Constant end date? Or dynamic? Keep constant for contest end)
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Safety check: ensure start date isn't way too early (e.g. bad data)
+    // cap at Dec 1, 2025 maybe? Or just trust data.
+    // Let's trust data but ensure it's not before Nov 2025 or something weird.
+    if (startDate < new Date(2025, 10, 1)) startDate.setMonth(11, 8); // Fallback if too weird
+
     const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
     // Build weeks array
@@ -91,35 +137,46 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
 
     while (currentWeekStart <= endDate) {
         const weekDays = [];
-        const weekEndDate = new Date(currentWeekStart);
-        weekEndDate.setDate(weekEndDate.getDate() + 6);
-
-        // Skip weeks entirely in the future
-        if (currentWeekStart > today) break;
+        // ... (rest of loop logic)
+        // Check "Skip weeks entirely in the future"
+        if (currentWeekStart > today && weeks.length > 0) break; // Allow at least one week? or if future, stop.
 
         for (let i = 0; i < 7; i++) {
             const dayDate = new Date(currentWeekStart);
             dayDate.setDate(dayDate.getDate() + i);
 
-            if (dayDate > endDate) break;
-            if (dayDate < startDate) continue;
+            if (dayDate > endDate) break; // Don't break loop, just stop adding days?
+            // Actually usually we show full week even if partial? 
+            // Existing logic: "if (dayDate > endDate) break;"
 
-            const month = dayDate.getMonth() + 1;
-            const day = dayDate.getDate();
-            const dateStr = `${month}/${day}`;
-            const minutes = dailyData[dateStr] || 0;
+            // Format keys for lookup
+            const y = dayDate.getFullYear();
+            const m = dayDate.getMonth() + 1;
+            const d = dayDate.getDate();
+            const dateKeyFull = `${y}/${m}/${d}`;         // 2025/12/8
+            const dateKeyFullPad = `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`; // 2025/12/08
+            const dateKeyShort = `${m}/${d}`;             // 12/8 (Legacy)
+
+            const dateStr = `${m}/${d}`; // Display format
+
+            // value lookup (try all formats)
+            const minutes = dailyData[dateKeyFull] || dailyData[dateKeyFullPad] || dailyData[dateKeyShort] || 0;
 
             // Get practice points for this day
-            const practiceSession = practiceSessions.find(s => s.date === dateStr);
+            // Session dates from API are likely YYYY/MM/DD or M/D. 
+            // We should match robustly? 
+            // existing code: s.date === dateStr. (using Short format).
+            // But sessions might have Full date.
+            const practiceSession = practiceSessions.find(s => s.date === dateKeyFull || s.date === dateKeyFullPad || s.date === dateKeyShort);
             const practicePoints = practiceSession ? practiceSession.points : 0;
 
             // Get class count for this day
-            const classSession = classSessions.find(s => s.date === dateStr);
+            const classSession = classSessions.find(s => s.date === dateKeyFull || s.date === dateKeyFullPad || s.date === dateKeyShort);
             const classPoints = classSession ? classSession.count * 50 : 0;
 
             weekDays.push({
                 date: dayDate,
-                dateStr,
+                dateStr, // Display purpose
                 dayName: dayNames[dayDate.getDay()],
                 minutes,
                 practicePoints,
