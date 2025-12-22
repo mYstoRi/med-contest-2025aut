@@ -162,6 +162,11 @@ function parseFormResponses(csvText) {
         // Generate a unique ID for this submission
         const id = 'sub_sync_' + Date.now().toString(36) + '_' + i;
 
+        // Debug log first 3 entries with thoughts
+        if (i <= 5) {
+            console.log(`📋 Row ${i}: name="${name}", date="${date}", min=${minutes}, thoughts="${thoughts?.substring(0, 50) || '(empty)'}", timeOfDay="${timeOfDay}", row.length=${row.length}`);
+        }
+
         submissions.push({
             id,
             type: 'meditation',
@@ -179,6 +184,10 @@ function parseFormResponses(csvText) {
             source: 'sheets'
         });
     }
+
+    // Log summary
+    const withThoughts = submissions.filter(s => s.thoughts && s.thoughts.trim()).length;
+    console.log(`📊 Form responses: ${submissions.length} total, ${withThoughts} with thoughts`);
 
     submissions.sort((a, b) => {
         const parseTs = (ts) => {
