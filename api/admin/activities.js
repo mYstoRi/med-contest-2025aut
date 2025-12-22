@@ -678,7 +678,7 @@ export default async function handler(req, res) {
                         await setDataPermanent(dataKey, data);
 
                         results.deleted.push({ id: deleteId, type, team, name, date, value: deletedValue });
-                    } else if (deleteId.startsWith('sub_')) {
+                    } else if (deleteId.startsWith('sub_') || deleteId.startsWith('sync_')) {
                         // Submission-based activity - delete from submissions:all
                         if (!submissionsLoaded) {
                             submissionsData = await getCache('submissions:all') || [];
@@ -698,53 +698,50 @@ export default async function handler(req, res) {
                             return dateStr;
                         };
 
-                        const originalLength = submissionsData.length;
-                        // Find and remove by matching ID (with normalized date)
-                        submissionsData = submissionsData.filter(sub => {
+                        // FIRST: Find the submission to get actual name and date
+                        const matchedSub = submissionsData.find(sub => {
                             const subId = sub.id || `sub_${sub.name}_${normDate(sub.date)}`;
-                            return subId !== deleteId;
+                            return subId === deleteId;
                         });
 
-                        // Also try to remove from data:meditation
-                        // Parse the ID: sub_{name}_{date}
-                        const idParts = deleteId.substring(4).split('_'); // Remove 'sub_' prefix
-                        if (idParts.length >= 2) {
-                            const date = idParts.pop(); // Last part is date (MM/DD)
-                            const name = idParts.join('_'); // Rest is name (may contain underscores)
+                        if (matchedSub) {
+                            const actualName = matchedSub.name;
+                            const actualDate = normDate(matchedSub.date);
+                            console.log(`🗑️ Found submission: ${actualName} @ ${actualDate}`);
 
-                            // Load and modify meditation data
+                            // Remove from submissions array
+                            submissionsData = submissionsData.filter(sub => {
+                                const subId = sub.id || `sub_${sub.name}_${normDate(sub.date)}`;
+                                return subId !== deleteId;
+                            });
+                            submissionsModified = true;
+
+                            // Also delete from data:meditation using ACTUAL name/date
                             if (!meditationLoaded) {
                                 meditationData = await getCache('data:meditation');
                                 meditationLoaded = true;
                                 console.log(`🗑️ Loaded meditation data with ${meditationData?.members?.length || 0} members`);
                             }
 
-                            let thisDeleted = false;
                             if (meditationData?.members) {
-                                const member = meditationData.members.find(m => m.name === name);
+                                const member = meditationData.members.find(m => m.name === actualName);
                                 if (member?.daily) {
                                     // Try to find and delete the date entry
                                     const dateKeys = Object.keys(member.daily);
                                     for (const dk of dateKeys) {
                                         const normalizedDk = normDate(dk);
-                                        if (normalizedDk === date) {
-                                            console.log(`🗑️ Deleting db entry: ${name} @ ${dk} -> ${date}`);
+                                        if (normalizedDk === actualDate) {
+                                            console.log(`🗑️ Deleting db entry: ${actualName} @ ${dk}`);
                                             delete member.daily[dk];
                                             member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
                                             meditationModified = true;
-                                            thisDeleted = true;
                                             break;
                                         }
                                     }
-                                } else {
-                                    console.log(`🗑️ DB: Member ${name} not found or no daily data`);
                                 }
                             }
-                        }
 
-                        if (submissionsData.length < originalLength) {
-                            submissionsModified = true;
-                            results.deleted.push({ id: deleteId, source: 'submission' });
+                            results.deleted.push({ id: deleteId, source: 'submission', name: actualName, date: actualDate });
                         } else {
                             results.failed.push({ id: deleteId, error: 'Submission not found' });
                         }
