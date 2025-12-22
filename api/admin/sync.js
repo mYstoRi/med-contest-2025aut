@@ -335,14 +335,33 @@ function convertToUnifiedActivities(sheetData) {
         }
     }
 
+    // Build a map of member names to teams for lookup
+    const memberTeamMap = new Map();
+    // Helper to add members to map
+    const addToMap = (members) => {
+        if (members) {
+            for (const m of members) {
+                if (m.name && m.team) {
+                    memberTeamMap.set(m.name, m.team);
+                }
+            }
+        }
+    };
+    addToMap(sheetData.meditation?.members);
+    addToMap(sheetData.practice?.members);
+    addToMap(sheetData.class?.members);
+
     // Convert form submissions (these have thoughts, timeOfDay, etc.)
     if (sheetData.recentActivity) {
         for (const sub of sheetData.recentActivity) {
             if (sub.duration > 0 || sub.minutes > 0) {
+                // Look up team if missing
+                const team = sub.team || memberTeamMap.get(sub.name) || '';
+
                 activities.push({
                     id: sub.id || generateId(),
                     type: sub.type || 'meditation',
-                    team: sub.team || '',
+                    team: team,
                     member: sub.name,
                     date: normalizeDate(sub.date),
                     value: sub.duration || sub.minutes,
