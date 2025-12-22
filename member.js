@@ -7,7 +7,8 @@ import {
     getSheetUrl,
     fetchSheetData,
     initTheme,
-    initSettings
+    initSettings,
+    parseDate
 } from './utils.js';
 
 // ========================================
@@ -15,13 +16,8 @@ import {
 // ========================================
 function calculateStreaks(meditationDaily, practiceSessions, classSessions) {
     // Parse date helper
-    const parseDate = (d) => {
-        const parts = d.split('/');
-        const month = parseInt(parts[0]) || 1;
-        const day = parseInt(parts[1]) || 1;
-        const year = month < 6 ? 2026 : 2025;
-        return new Date(year, month - 1, day);
-    };
+    // Parse date helper - use imported parseDate
+
 
     // Calculate streak from date strings
     const calcStreak = (dateStrs) => {
@@ -215,13 +211,9 @@ function renderMemberPage(memberName, teamName, meditation, practice, classData,
     }
 
     // Sort by date (most recent first)
-    const parseDate = (d) => {
-        const parts = d.split('/');
-        const month = parseInt(parts[0]) || 1;
-        const day = parseInt(parts[1]) || 1;
-        const val = (month < 6 ? month + 12 : month) * 100 + day;
-        return val;
-    };
+    // Sort by date (most recent first)
+    // Use parseDate from utils.js
+
     activities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
 
     const teamUrl = `./team.html?team=${encodeURIComponent(teamName)}`;

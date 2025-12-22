@@ -44,6 +44,16 @@ export function cleanName(name) {
 export function parseDate(dateStr) {
     if (!dateStr) return null;
     const parts = dateStr.split('/');
+
+    // Handle YYYY/MM/DD
+    if (parts.length === 3) {
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const day = parseInt(parts[2]);
+        return new Date(year, month - 1, day);
+    }
+
+    // Handle M/D (legacy)
     const month = parseInt(parts[0]) || 1;
     const day = parseInt(parts[1]) || 1;
     // Handle year wrap: months 1-5 are in 2026, months 6-12 are in 2025
