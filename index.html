@@ -56,6 +56,7 @@
       <h2 class="section-title">
         <span class="section-icon">⚡</span>
         隊伍積分 Team Scores
+        <button class="info-btn" id="rulesBtn" aria-label="Scoring Rules">?</button>
       </h2>
       <div class="team-bars" id="teamBars">
         <!-- Team bars will be rendered by JS -->
@@ -128,6 +129,44 @@
     <footer class="footer">
       <a href="./admin.html" class="admin-link">🔧 管理 Admin</a>
     </footer>
+  </div>
+
+  <!-- Rules Modal -->
+  <div class="rules-modal-overlay" id="rulesModal">
+    <div class="rules-modal glass-card">
+      <button class="close-modal-btn" id="closeRulesBtn">&times;</button>
+      <h2 class="rules-title">🏆 分數規則 How to Score</h2>
+
+      <div class="rules-content">
+        <div class="rule-item">
+          <div class="rule-icon">🧘</div>
+          <div class="rule-info">
+            <h3>禪定 Meditation</h3>
+            <p>每分鐘 1 分<br>1 point per minute</p>
+          </div>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-icon">🙏</div>
+          <div class="rule-info">
+            <h3>共修 Practice</h3>
+            <p>依據共修場次給分 (通常 60 分/次)<br>Points vary by session (usually 60 pts)</p>
+          </div>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-icon">📚</div>
+          <div class="rule-info">
+            <h3>會館課 Classes</h3>
+            <p>出席一次 50 分<br>50 points per attendance</p>
+          </div>
+        </div>
+
+        <div class="rules-note">
+          <p>💡 每日分數無上限，持續精進！<br>No daily limit, keep practicing!</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./main.js"></script>

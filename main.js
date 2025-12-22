@@ -488,6 +488,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     initSettings();
 
+    // Initialize Rules Modal
+    const rulesBtn = document.getElementById('rulesBtn');
+    const closeRulesBtn = document.getElementById('closeRulesBtn');
+    const rulesModal = document.getElementById('rulesModal');
+
+    if (rulesBtn && rulesModal) {
+        rulesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            rulesModal.classList.add('open');
+        });
+
+        if (closeRulesBtn) {
+            closeRulesBtn.addEventListener('click', () => {
+                rulesModal.classList.remove('open');
+            });
+        }
+
+        rulesModal.addEventListener('click', (e) => {
+            if (e.target === rulesModal) {
+                rulesModal.classList.remove('open');
+            }
+        });
+    }
+
     console.log('🧘 Meditation Dashboard initialized');
 
     // Check maintenance mode first
