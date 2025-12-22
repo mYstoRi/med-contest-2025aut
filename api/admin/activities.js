@@ -237,8 +237,23 @@ export default async function handler(req, res) {
 
             // Create a map of submissions by name+date for quick lookup
             const submissionMap = new Map();
+            // Helper to normalize date format for matching (handles both YYYY/MM/DD and MM/DD)
+            const normalizeDate = (dateStr) => {
+                if (!dateStr) return '';
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                    // YYYY/MM/DD -> MM/DD
+                    return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+                } else if (parts.length === 2) {
+                    // MM/DD -> normalize  
+                    return `${parseInt(parts[0], 10)}/${parseInt(parts[1], 10)}`;
+                }
+                return dateStr;
+            };
+
             for (const sub of submissions) {
-                const key = `${sub.name}:${sub.date}`;
+                const normalizedDate = normalizeDate(sub.date);
+                const key = `${sub.name}:${normalizedDate}`;
                 // Store all submissions for same name+date (multiple per day possible)
                 if (!submissionMap.has(key)) {
                     submissionMap.set(key, []);
@@ -256,10 +271,11 @@ export default async function handler(req, res) {
             // Enrich with submission data (thoughts) where available
             let matchCount = 0;
             const allActivities = [...dbActivities, ...manualActivities].map((activity, idx) => {
-                const key = `${activity.member || activity.name}:${activity.date}`;
+                const normalizedDate = normalizeDate(activity.date);
+                const key = `${activity.member || activity.name}:${normalizedDate}`;
                 // Debug: show first 3 activity keys
                 if (idx < 3) {
-                    console.log(`📝 Activity key: "${key}" (member="${activity.member}", name="${activity.name}", date="${activity.date}")`);
+                    console.log(`📝 Activity key: "${key}" (member="${activity.member}", date="${activity.date}" -> "${normalizedDate}")`);
                 }
                 const subs = submissionMap.get(key);
                 if (subs && subs.length > 0) {
