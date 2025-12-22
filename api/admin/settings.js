@@ -62,6 +62,8 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 maintenanceMode: settings.maintenanceMode,
                 maintenanceMessage: settings.maintenanceMessage,
+                announcement: settings.announcement,
+                announcementReward: settings.announcementReward,
             });
         } catch (error) {
             console.error('Get settings error:', error);
