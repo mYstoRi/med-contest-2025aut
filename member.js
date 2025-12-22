@@ -146,7 +146,7 @@ function renderWeeklyCards(dailyData, practiceSessions, classSessions) {
         currentWeekStart.setDate(currentWeekStart.getDate() + 7);
     }
 
-    return weeks.map(week => `
+    return weeks.reverse().map(week => `
         <div class="week-card">
             <div class="week-header">
                 <span class="week-title">第 ${week.num} 週</span>

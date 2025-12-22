@@ -57,85 +57,34 @@ export default async function handler(req, res) {
         // Convert date to YYYY/MM/DD format for consistency with sheets data
         const dateKey = date.replace(/-/g, '/');
 
-        // Get existing meditation data from database
-        let meditation = await getCache(DATA_KEYS.MEDITATION);
-        if (!meditation || !meditation.members) {
-            meditation = { dates: [], members: [] };
+        // Determine Team
+        let detectedTeam = 'Unknown';
+
+        // 1. Check manual members list (members:all)
+        const manualMembers = await getCache('members:all') || [];
+        const manualMember = manualMembers.find(m => m.name === name);
+        if (manualMember && manualMember.team) {
+            detectedTeam = manualMember.team;
         }
 
-        // Find or create member entry
-        let member = meditation.members.find(m => m.name === name);
-        if (!member) {
-            // Member not in meditation data - search other sources for their team
-            let detectedTeam = 'Unknown';
-
-            // 1. Check manual members list (admin-added members)
-            const manualMembers = await getCache('members:all');
-            if (manualMembers && Array.isArray(manualMembers)) {
-                const found = manualMembers.find(m => m.name === name);
-                if (found && found.team) {
-                    detectedTeam = found.team;
-                    console.log(`Found team from members:all: ${name} -> ${detectedTeam}`);
-                }
+        // 2. Check synced members (members:synced)
+        if (detectedTeam === 'Unknown') {
+            const syncedMembers = await getCache('members:synced') || [];
+            const synced = syncedMembers.find(m => m.name === name);
+            if (synced && synced.team) {
+                detectedTeam = synced.team;
             }
-
-            // 2. If still unknown, check practice/class data
-            if (detectedTeam === 'Unknown') {
-                const practice = await getCache(DATA_KEYS.PRACTICE);
-                if (practice?.members) {
-                    const found = practice.members.find(m => m.name === name);
-                    if (found && found.team) {
-                        detectedTeam = found.team;
-                        console.log(`Found team from practice: ${name} -> ${detectedTeam}`);
-                    }
-                }
-            }
-
-            if (detectedTeam === 'Unknown') {
-                const classData = await getCache(DATA_KEYS.CLASS);
-                if (classData?.members) {
-                    const found = classData.members.find(m => m.name === name);
-                    if (found && found.team) {
-                        detectedTeam = found.team;
-                        console.log(`Found team from class: ${name} -> ${detectedTeam}`);
-                    }
-                }
-            }
-
-            member = { team: detectedTeam, name, total: 0, daily: {} };
-            meditation.members.push(member);
-            console.log(`Created new meditation member: ${name} (team: ${detectedTeam})`);
         }
 
-        // Ensure daily object exists
-        if (!member.daily) {
-            member.daily = {};
-        }
+        console.log(`📝 Processing submission for ${name} (Team: ${detectedTeam})`);
 
-        // Add/update daily entry (accumulate minutes for same date)
-        member.daily[dateKey] = (member.daily[dateKey] || 0) + durationNum;
-
-        // Recalculate total
-        member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
-
-        // Add date to dates array if new
-        if (!meditation.dates.includes(dateKey)) {
-            meditation.dates.push(dateKey);
-            meditation.dates.sort();
-        }
-
-        // Save updated meditation data back to database
-        await setDataPermanent(DATA_KEYS.MEDITATION, meditation);
-
-        console.log(`📝 Meditation saved: ${name} - ${dateKey} - ${durationNum} min (total: ${member.total})`);
-
-        // Store individual submission record (for afterthoughts/history)
+        // Store individual submission record (unified activities)
         const submissionId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const activity = {
             id: submissionId,
             type: 'meditation',
             member: name,
-            team: member.team,
+            team: detectedTeam,
             date: dateKey,
             value: durationNum,
             timeOfDay,
@@ -146,6 +95,7 @@ export default async function handler(req, res) {
         };
 
         // Get existing activities and add new one
+        // Note: As dataset grows, this full read/write might need optimization (e.g. append command if moved to List/Set)
         let activities = await getCache('activities:all') || [];
         activities.push(activity);
         await setDataPermanent('activities:all', activities);
@@ -157,11 +107,10 @@ export default async function handler(req, res) {
             message: 'Meditation record saved successfully',
             record: {
                 id: submissionId,
-                name: submission.name,
-                date: submission.date,
-                duration: submission.duration,
-                timeOfDay: submission.timeOfDay,
-                newTotal: member.total
+                name: name,
+                date: date,
+                duration: duration,
+                timeOfDay: timeOfDay
             }
         });
 
@@ -173,4 +122,3 @@ export default async function handler(req, res) {
         });
     }
 }
-
