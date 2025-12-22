@@ -246,6 +246,12 @@ export default async function handler(req, res) {
                 submissionMap.get(key).push(sub);
             }
 
+            // Debug: show sample keys
+            if (submissionMap.size > 0) {
+                const sampleKeys = Array.from(submissionMap.keys()).slice(0, 3);
+                console.log(`📋 Submission keys (sample): ${sampleKeys.join(', ')}`);
+            }
+
             // Merge: database activities first, then manual overrides
             // Enrich with submission data (thoughts) where available
             const allActivities = [...dbActivities, ...manualActivities].map(activity => {
@@ -310,8 +316,12 @@ export default async function handler(req, res) {
                 return a.type.localeCompare(b.type);
             });
 
-            // Limit to most recent 100 for performance
-            filtered = filtered.slice(0, 100);
+            // Debug: count activities with thoughts
+            const withThoughts = filtered.filter(a => a.thoughts).length;
+            console.log(`📊 Activities: ${filtered.length} total, ${withThoughts} with thoughts, ${submissions.length} submissions in DB`);
+
+            // Limit to most recent 500 for performance
+            filtered = filtered.slice(0, 500);
 
             return res.status(200).json({
                 count: filtered.length,
