@@ -1353,10 +1353,19 @@ body {
   position: relative;
   transform: scale(0.9);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: rgba(15, 10, 31, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
 .rules-modal-overlay.open .rules-modal {
   transform: scale(1);
+}
+
+[data-theme="light"] .rules-modal {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
 }
 
 .close-modal-btn {
