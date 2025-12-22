@@ -41,6 +41,9 @@ function parseMeditationSheet(csvText) {
     const dates = lines[0]?.slice(3) || [];
     const members = [];
 
+    // Debug: show dates from header
+    console.log(`📅 Meditation sheet dates (${dates.length}): ${dates.slice(-5).join(', ')} (showing last 5)`);
+
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i];
         if (!row || row.length < 3) continue;
