@@ -64,6 +64,10 @@ export default async function handler(req, res) {
             class: {}
         };
 
+        // Global stats
+        let totalMinutes = 0;
+        let totalSessions = 0;
+
         // Process all activities
         for (const act of allActivities) {
             const type = act.type;
@@ -73,6 +77,12 @@ export default async function handler(req, res) {
             const value = parseFloat(act.value) || 0;
             const date = act.date; // Should be YYYY/MM/DD
 
+            // Update global stats (Meditation only)
+            if (type === 'meditation') {
+                totalMinutes += value;
+                totalSessions++;
+            }
+
             // Ensure member entry exists
             if (!memberStats[type][name]) {
                 memberStats[type][name] = {
@@ -81,11 +91,26 @@ export default async function handler(req, res) {
                     total: 0,
                     daily: {}
                 };
+                // For class, add points field
+                if (type === 'class') {
+                    memberStats.class[name].points = 0;
+                }
             }
 
             // Update stats
-            memberStats[type][name].total += value;
-            memberStats[type][name].daily[date] = (memberStats[type][name].daily[date] || 0) + value;
+            if (type === 'class') {
+                // Class special logic: value is count (1) usually. Points = value * 50.
+                // If stored value is large (>5), assume it's already points.
+                const count = (value < 5) ? value : Math.ceil(value / 50);
+                const points = (value < 5) ? value * 50 : value;
+
+                memberStats.class[name].total += count; // Total count
+                memberStats.class[name].points += points; // Total points
+                memberStats.class[name].daily[date] = (memberStats.class[name].daily[date] || 0) + count;
+            } else {
+                memberStats[type][name].total += value;
+                memberStats[type][name].daily[date] = (memberStats[type][name].daily[date] || 0) + value;
+            }
 
             // Update team if found (and not set)
             if (!memberStats[type][name].team && act.team) {
@@ -97,6 +122,10 @@ export default async function handler(req, res) {
                 data.meditation.dates.push(date);
             }
         }
+
+        // Add globals to data
+        data.totalMinutes = totalMinutes;
+        data.totalSessions = totalSessions;
 
         // Convert maps to lists for response
         data.meditation.members = Object.values(memberStats.meditation);

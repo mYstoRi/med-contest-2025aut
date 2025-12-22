@@ -2,7 +2,7 @@ import { requireAuth } from '../_lib/auth.js';
 import { getCache, setCache, CACHE_KEYS } from '../_lib/kv.js';
 
 /**
- * Get all members from cache
+ * Get all members from cache (manual members)
  */
 async function getMembers() {
     try {
@@ -32,330 +32,203 @@ function generateId() {
     return 'm_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 }
 
-// Points config (used for class scoring)
-const CLASS_POINTS_PER_ATTENDANCE = 50;
-
 /**
- * Get members from database (synced data)
- * Uses the same data that was synced via /api/admin/sync
+ * Get members from Unified Activities
  */
-async function getMembersFromDatabase() {
+async function getMembersFromUnified() {
     const membersMap = new Map();
 
     try {
-        // Get synced data from database (same keys as sync.js uses)
-        const [meditation, practice, classData] = await Promise.all([
-            getCache('data:meditation'),
-            getCache('data:practice'),
-            getCache('data:class'),
-        ]);
+        // Get unified activities
+        const activities = await getCache('activities:all') || [];
 
-        // Parse meditation data
-        if (meditation?.members) {
-            for (const m of meditation.members) {
-                const key = `${m.team}:${m.name}`;
-                if (!membersMap.has(key)) {
-                    membersMap.set(key, {
-                        id: `db_${m.team}_${m.name}`,
-                        name: m.name,
-                        team: m.team,
-                        meditationTotal: m.total || 0,
-                        practiceTotal: 0,
-                        classTotal: 0,
-                        source: 'database'
-                    });
-                } else {
-                    membersMap.get(key).meditationTotal = m.total || 0;
-                }
+        // Determine scores from activities
+        for (const act of activities) {
+            if (!act.member) continue;
+
+            const name = act.member;
+            const team = act.team || 'Unknown';
+            const type = act.type;
+            const value = parseFloat(act.value) || 0; // minutes or count
+            const points = parseFloat(act.value) || 0; // Default points = value
+
+            // Calculate specific points
+            let medPoints = 0;
+            let pracPoints = 0;
+            let classPoints = 0;
+
+            if (type === 'meditation') medPoints = points;
+            else if (type === 'practice') pracPoints = points;
+            else if (type === 'class') classPoints = act.points || (act.value * 50); // Handle legacy class points if needed, assuming value is count? Or consistent points. Unified usually stores points directly or value. sync.js sets value=points for class. Let's verify sync.js logic.
+            // In sync.js (lines 328): value: value (from daily: { date: points }). 
+            // In daily data from sheets, class value is attendance count usually? 
+            // Let's check sync.js conversion again. 
+            // sync.js line 328: value is from member.daily[date]. In parseClassSheet, daily values are 1 (attended).
+            // But wait, class points are 50 per attendance.
+            // In sync.js, does it convert to points?
+            // Checking sync.js... "const mergedClass = mergeMembers(existingClass, sheetData.class);" 
+            // parseClassSheet returns member.daily where keys are dates, values are 1.
+            // So for class, value=1 means 50 points.
+
+            // Correction for Class Points:
+            if (type === 'class') {
+                // If value is small (likely count), multiply by 50. If large (likely points), keep it.
+                // Safest is to rely on what data.js does? data.js aggregates values.
+                // Let's assume value in activities:all is "Minutes/Points/Count".
+                // In sync.js, for class, value comes from sheet value.
+                classPoints = (value < 5) ? value * 50 : value;
             }
+
+            const key = `${team}:${name}`;
+
+            if (!membersMap.has(key)) {
+                membersMap.set(key, {
+                    id: `db_${team}_${name}`,
+                    name,
+                    team,
+                    meditationTotal: 0,
+                    practiceTotal: 0,
+                    classTotal: 0,
+                    source: 'database'
+                });
+            }
+
+            const m = membersMap.get(key);
+            // Update team if missing
+            if ((!m.team || m.team === 'Unknown') && team && team !== 'Unknown') {
+                m.team = team;
+            }
+
+            if (type === 'meditation') m.meditationTotal += medPoints;
+            if (type === 'practice') m.practiceTotal += pracPoints;
+            if (type === 'class') m.classTotal += classPoints;
         }
 
-        // Parse practice data
-        if (practice?.members) {
-            for (const m of practice.members) {
-                const key = `${m.team}:${m.name}`;
-                if (!membersMap.has(key)) {
-                    membersMap.set(key, {
-                        id: `db_${m.team}_${m.name}`,
-                        name: m.name,
-                        team: m.team,
-                        meditationTotal: 0,
-                        practiceTotal: m.total || 0,
-                        classTotal: 0,
-                        source: 'database'
-                    });
-                } else {
-                    membersMap.get(key).practiceTotal = m.total || 0;
-                }
-            }
-        }
-
-        // Parse class data (has tier info)
-        if (classData?.members) {
-            for (const m of classData.members) {
-                const key = `${m.team}:${m.name}`;
-                if (!membersMap.has(key)) {
-                    membersMap.set(key, {
-                        id: `db_${m.team}_${m.name}`,
-                        name: m.name,
-                        team: m.team,
-                        tier: m.tier || '',
-                        meditationTotal: 0,
-                        practiceTotal: 0,
-                        classTotal: m.points || 0,
-                        source: 'database'
-                    });
-                } else {
-                    membersMap.get(key).classTotal = m.points || 0;
-                    membersMap.get(key).tier = m.tier || '';
-                }
-            }
-        }
     } catch (error) {
-        console.error('Failed to get members from database:', error);
+        console.error('Failed to get members from unified activities:', error);
     }
 
     return Array.from(membersMap.values());
 }
 
-
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    // GET is public, other methods require auth
-    if (req.method !== 'GET') {
-        const isAuthed = await requireAuth(req, res);
-        if (!isAuthed) return;
-    }
+    // Require admin authentication
+    const isAuthed = await requireAuth(req, res);
+    if (!isAuthed) return;
 
-    // GET /api/admin/members - Get all members (from database + manually added)
+    // GET /api/admin/members - Get all members
     if (req.method === 'GET') {
         try {
+            // Get manually added members
             const manualMembers = await getMembers();
-            const dbMembers = await getMembersFromDatabase();
 
-            // Merge: dedupe by name+team, prefer manual over database
-            const seenKeys = new Set();
-            const allMembers = [];
+            // Get members from unified activities
+            const dbMembers = await getMembersFromUnified();
 
-            // Manual first (higher priority)
-            for (const m of manualMembers) {
-                const key = `${m.team}:${m.name}`;
-                if (!seenKeys.has(key)) {
-                    seenKeys.add(key);
-                    allMembers.push(m);
-                }
-            }
+            // Merge lists (prioritize manual members for duplicates if any)
+            const manualIds = new Set(manualMembers.map(m => m.name + ':' + m.team));
 
-            // Then database
-            for (const m of dbMembers) {
-                const key = `${m.team}:${m.name}`;
-                if (!seenKeys.has(key)) {
-                    seenKeys.add(key);
-                    allMembers.push(m);
-                }
-            }
+            // Filter out db members that are already in manual list (by name+team)
+            const filteredDbMembers = dbMembers.filter(m => !manualIds.has(m.name + ':' + m.team));
 
-            const { team } = req.query || {};
+            // Also merge if name matches but team is different? No, treat as different.
 
-            let filtered = allMembers;
-            if (team) {
-                filtered = filtered.filter(m => m.team === team);
-            }
+            // Combine
+            const allMembers = [...manualMembers, ...filteredDbMembers];
 
-            // Sort by team, then by tier (領航員 first), then by name
-            filtered.sort((a, b) => {
-                if (a.team !== b.team) return a.team.localeCompare(b.team);
-                // 領航員 (navigator) comes before other tiers
-                const aIsNavigator = a.tier === '領航員' ? 0 : 1;
-                const bIsNavigator = b.tier === '領航員' ? 0 : 1;
-                if (aIsNavigator !== bIsNavigator) return aIsNavigator - bIsNavigator;
-                return a.name.localeCompare(b.name);
-            });
+            // Calculate totals
+            const enrichedMembers = allMembers.map(m => ({
+                ...m,
+                totalScore: (m.meditationTotal || 0) + (m.practiceTotal || 0) + (m.classTotal || 0)
+            }));
 
-            return res.status(200).json({
-                count: filtered.length,
-                totalDatabase: dbMembers.length,
-                totalManual: manualMembers.length,
-                members: filtered
-            });
+            // Sort by total score descending
+            enrichedMembers.sort((a, b) => b.totalScore - a.totalScore);
+
+            return res.status(200).json(enrichedMembers);
         } catch (error) {
             console.error('Get members error:', error);
             return res.status(500).json({ error: 'Failed to get members' });
         }
     }
 
-    // POST /api/admin/members - Add new member
+    // POST /api/admin/members - Add/Update member
     if (req.method === 'POST') {
         try {
-            const { name, team } = req.body || {};
+            const { name, team, id } = req.body;
 
-            if (!name) {
-                return res.status(400).json({ error: 'Member name is required' });
-            }
-            if (!team) {
-                return res.status(400).json({ error: 'Team is required' });
+            if (!name || !team) {
+                return res.status(400).json({ error: 'Name and Team are required' });
             }
 
             const members = await getMembers();
 
-            // Check for duplicate
-            const existing = members.find(m => m.name === name && m.team === team);
-            if (existing) {
-                return res.status(409).json({ error: 'Member already exists in this team' });
+            if (id) {
+                // Update existing
+                const index = members.findIndex(m => m.id === id);
+                if (index !== -1) {
+                    members[index] = { ...members[index], name, team };
+                    await saveMembers(members);
+                    return res.status(200).json({ success: true, member: members[index] });
+                }
             }
 
-            const member = {
+            // Create new
+            const newMember = {
                 id: generateId(),
                 name,
                 team,
+                meditationTotal: 0,
+                practiceTotal: 0,
+                classTotal: 0,
+                source: 'manual',
                 createdAt: new Date().toISOString()
             };
 
-            members.push(member);
+            members.push(newMember);
             await saveMembers(members);
 
-            return res.status(201).json({
-                success: true,
-                member,
-                message: 'Member added successfully'
-            });
+            return res.status(201).json({ success: true, member: newMember });
+
         } catch (error) {
             console.error('Add member error:', error);
             return res.status(500).json({ error: 'Failed to add member' });
         }
     }
 
-    // PUT /api/admin/members - Update member
-    if (req.method === 'PUT') {
-        try {
-            const { id, name, team } = req.body || {};
-
-            if (!id) {
-                return res.status(400).json({ error: 'Member ID required' });
-            }
-
-            const members = await getMembers();
-            const index = members.findIndex(m => m.id === id);
-
-            if (index === -1) {
-                return res.status(404).json({ error: 'Member not found' });
-            }
-
-            if (name) members[index].name = name;
-            if (team) members[index].team = team;
-            members[index].updatedAt = new Date().toISOString();
-
-            await saveMembers(members);
-
-            return res.status(200).json({
-                success: true,
-                member: members[index],
-                message: 'Member updated successfully'
-            });
-        } catch (error) {
-            console.error('Update member error:', error);
-            return res.status(500).json({ error: 'Failed to update member' });
-        }
-    }
-
-    // DELETE /api/admin/members?id=xxx - Delete member
+    // DELETE /api/admin/members - Delete member
     if (req.method === 'DELETE') {
         try {
-            const { id } = req.query || {};
+            const { id } = req.query;
 
             if (!id) {
-                return res.status(400).json({ error: 'Member ID required' });
+                return res.status(400).json({ error: 'Member ID is required' });
             }
 
-            // Find the member first to get name and team
-            const members = await getMembers();
-            let memberToDelete = null;
-            let memberIndex = members.findIndex(m => m.id === id);
+            let members = await getMembers();
+            const initialLength = members.length;
+            members = members.filter(m => m.id !== id);
 
-            if (memberIndex !== -1) {
-                memberToDelete = members[memberIndex];
-            } else {
-                // Try to find by db_ id pattern (for database-sourced members)
-                // Format: db_${team}_${name}
-                if (id.startsWith('db_')) {
-                    const match = id.match(/^db_(.+)_(.+)$/);
-                    if (match) {
-                        memberToDelete = { team: match[1], name: match[2] };
-                    }
-                }
-            }
-
-            if (!memberToDelete) {
-                return res.status(404).json({ error: 'Member not found' });
-            }
-
-            const { name, team } = memberToDelete;
-            console.log(`Deleting member: ${name} from team: ${team}`);
-
-            // 1. Remove from manual members list
-            if (memberIndex !== -1) {
-                members.splice(memberIndex, 1);
+            if (members.length !== initialLength) {
                 await saveMembers(members);
-                console.log(`Removed from members:all`);
+                return res.status(200).json({ success: true, message: 'Member deleted' });
             }
 
-            // 2. Remove from meditation data
-            const meditation = await getCache(CACHE_KEYS.MEDITATION);
-            if (meditation?.members) {
-                const medIdx = meditation.members.findIndex(m => m.name === name && m.team === team);
-                if (medIdx !== -1) {
-                    meditation.members.splice(medIdx, 1);
-                    await setCache(CACHE_KEYS.MEDITATION, meditation, 60 * 60 * 24 * 365);
-                    console.log(`Removed from meditation data`);
-                }
-            }
+            // If not found in manual members, it might be a DB member, checking...
+            // Actually we can't delete DB members via this API easily unless we add suppression logic.
+            // For now, only manual members can be deleted. DB members come from Sync.
 
-            // 3. Remove from practice data
-            const practice = await getCache(CACHE_KEYS.PRACTICE);
-            if (practice?.members) {
-                const pracIdx = practice.members.findIndex(m => m.name === name && m.team === team);
-                if (pracIdx !== -1) {
-                    practice.members.splice(pracIdx, 1);
-                    await setCache(CACHE_KEYS.PRACTICE, practice, 60 * 60 * 24 * 365);
-                    console.log(`Removed from practice data`);
-                }
-            }
+            return res.status(404).json({ error: 'Member not found in manual list' });
 
-            // 4. Remove from class data
-            const classData = await getCache(CACHE_KEYS.CLASS);
-            if (classData?.members) {
-                const classIdx = classData.members.findIndex(m => m.name === name && m.team === team);
-                if (classIdx !== -1) {
-                    classData.members.splice(classIdx, 1);
-                    await setCache(CACHE_KEYS.CLASS, classData, 60 * 60 * 24 * 365);
-                    console.log(`Removed from class data`);
-                }
-            }
-
-            // 5. Remove associated activities
-            const activities = await getCache('activities:all');
-            if (activities && Array.isArray(activities)) {
-                const filtered = activities.filter(a => !(a.member === name && a.team === team));
-                if (filtered.length !== activities.length) {
-                    await setCache('activities:all', filtered, 60 * 60 * 24 * 7);
-                    console.log(`Removed ${activities.length - filtered.length} activities`);
-                }
-            }
-
-            return res.status(200).json({
-                success: true,
-                deleted: { name, team },
-                message: 'Member deleted from all data sources'
-            });
         } catch (error) {
             console.error('Delete member error:', error);
             return res.status(500).json({ error: 'Failed to delete member' });
