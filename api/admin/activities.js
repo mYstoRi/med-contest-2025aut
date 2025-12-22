@@ -588,6 +588,11 @@ export default async function handler(req, res) {
             let activities = await getActivities();
             let activitiesModified = false;
 
+            // Track submissions for sub_ deletes
+            let submissionsData = [];
+            let submissionsLoaded = false;
+            let submissionsModified = false;
+
             // Process each ID
             for (const deleteId of idsToDelete) {
                 try {
@@ -647,6 +652,26 @@ export default async function handler(req, res) {
                         await setDataPermanent(dataKey, data);
 
                         results.deleted.push({ id: deleteId, type, team, name, date, value: deletedValue });
+                    } else if (deleteId.startsWith('sub_')) {
+                        // Submission-based activity - delete from submissions:all
+                        if (!submissionsLoaded) {
+                            submissionsData = await getCache('submissions:all') || [];
+                            submissionsLoaded = true;
+                        }
+
+                        const originalLength = submissionsData.length;
+                        // Find and remove by matching ID
+                        submissionsData = submissionsData.filter(sub => {
+                            const subId = sub.id || `sub_${sub.name}_${sub.date}`;
+                            return subId !== deleteId;
+                        });
+
+                        if (submissionsData.length < originalLength) {
+                            submissionsModified = true;
+                            results.deleted.push({ id: deleteId, source: 'submission' });
+                        } else {
+                            results.failed.push({ id: deleteId, error: 'Submission not found' });
+                        }
                     } else {
                         // Manual activity
                         const index = activities.findIndex(a => a.id === deleteId);
@@ -668,6 +693,12 @@ export default async function handler(req, res) {
             if (activitiesModified) {
                 await saveActivities(activities);
                 await deleteCache(CACHE_KEYS.META);
+            }
+
+            // Save submissions if modified
+            if (submissionsModified) {
+                const { setDataPermanent } = await import('../_lib/kv.js');
+                await setDataPermanent('submissions:all', submissionsData);
             }
 
             return res.status(200).json({
