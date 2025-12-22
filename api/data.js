@@ -18,35 +18,93 @@ export default async function handler(req, res) {
     try {
 
         // Get data from database
-        const [meditation, practice, classData, meta, manualActivities, manualMembers] = await Promise.all([
+        const [meditation, practice, classData, meta, manualActivities, manualMembers, submissions] = await Promise.all([
             getCache(CACHE_KEYS.MEDITATION),
             getCache(CACHE_KEYS.PRACTICE),
             getCache(CACHE_KEYS.CLASS),
             getCacheMeta(),
             getCache('activities:all'),
             getCache('members:all'),
+            getCache('submissions:all'),
         ]);
 
-        // Generate recent activity directly from meditation data
-        // This is the source of truth - form submissions update this
+        // Generate recent activity from submissions (primary source for meditation)
         const parseDate = (dateStr) => {
             if (!dateStr) return 0;
             const normalized = (dateStr || '').replace(/\//g, '-');
             return new Date(normalized).getTime() || 0;
         };
 
-        // Extract activities from meditation.daily entries
-        const meditationActivities = [];
+        // Normalize date format (YYYY/MM/DD -> MM/DD)
+        const normalizeDate = (dateStr) => {
+            if (!dateStr) return '';
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+            } else if (parts.length === 2) {
+                return `${parseInt(parts[0], 10)}/${parseInt(parts[1], 10)}`;
+            }
+            return dateStr;
+        };
+
+        // Build team lookup from meditation sheet data
+        const teamLookup = {};
         const medData = meditation || { dates: [], members: [] };
+        for (const member of medData.members || []) {
+            if (member.name && member.team) {
+                teamLookup[member.name] = member.team;
+            }
+        }
+
+        // Process submissions to build meditation activities and update member totals
+        const submissionsByMember = {}; // { memberName: { date: minutes } }
+        const meditationActivities = [];
+        const submissionsList = submissions || [];
+
+        for (const sub of submissionsList) {
+            if (sub.type === 'meditation' && sub.duration > 0) {
+                const name = sub.name;
+                const date = normalizeDate(sub.date);
+                const team = sub.team || teamLookup[name] || '';
+                const minutes = sub.duration || sub.minutes || 0;
+
+                // Track minutes by member+date for totals
+                if (!submissionsByMember[name]) {
+                    submissionsByMember[name] = { team, daily: {} };
+                }
+                submissionsByMember[name].daily[date] = (submissionsByMember[name].daily[date] || 0) + minutes;
+                if (!submissionsByMember[name].team && team) {
+                    submissionsByMember[name].team = team;
+                }
+
+                meditationActivities.push({
+                    type: 'meditation',
+                    name,
+                    team,
+                    date,
+                    minutes,
+                    points: minutes,
+                    thoughts: sub.thoughts || undefined,
+                });
+            }
+        }
+
+        // Also include activities from meditation sheet that aren't in submissions
+        const submissionKeys = new Set();
+        for (const act of meditationActivities) {
+            submissionKeys.add(`${act.name}:${act.date}`);
+        }
         for (const member of medData.members || []) {
             if (member.daily) {
                 for (const [date, minutes] of Object.entries(member.daily)) {
-                    if (minutes > 0) {
+                    const normalizedDate = normalizeDate(date);
+                    const key = `${member.name}:${normalizedDate}`;
+                    if (minutes > 0 && !submissionKeys.has(key)) {
                         meditationActivities.push({
                             type: 'meditation',
                             name: member.name,
                             team: member.team,
-                            date,
+                            date: normalizedDate,
                             minutes,
                             points: minutes,
                         });
@@ -59,8 +117,28 @@ export default async function handler(req, res) {
         meditationActivities.sort((a, b) => parseDate(b.date) - parseDate(a.date));
         const recentActivity = meditationActivities.slice(0, 50);
 
+        // Update meditation members with submission data
+        const mergedMeditation = { ...medData };
+        for (const [name, data] of Object.entries(submissionsByMember)) {
+            let memberObj = mergedMeditation.members.find(m => m.name === name);
+            if (!memberObj) {
+                memberObj = { team: data.team || '', name, total: 0, daily: {} };
+                mergedMeditation.members.push(memberObj);
+            }
+            // Merge daily data (submissions take precedence for their dates)
+            for (const [date, mins] of Object.entries(data.daily)) {
+                memberObj.daily[date] = mins;
+            }
+            // Recalculate total
+            memberObj.total = Object.values(memberObj.daily).reduce((sum, v) => sum + v, 0);
+            // Update team if missing
+            if (!memberObj.team && data.team) {
+                memberObj.team = data.team;
+            }
+        }
+
         const result = {
-            meditation: meditation || { dates: [], members: [] },
+            meditation: mergedMeditation,
             practice: practice || { dates: [], members: [] },
             class: classData || { dates: [], members: [] },
             recentActivity,
