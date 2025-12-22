@@ -153,10 +153,11 @@ function parseFormResponses(csvText) {
         if (!name || !date || minutes <= 0) continue;
 
         // Try to get additional columns if they exist
+        // Columns: 0=Timestamp, 1=Name, 2=Date, 3=Minutes, 4=TimeOfDay, 5=Thoughts, 6=ShareConsent
         const timeOfDay = row[4] || '';
         const thoughts = row[5] || '';
         const shareConsent = row[6] || '';
-        const team = row[7] || row[4] || ''; // Team might be in different positions
+        const team = ''; // No team column in form - will be looked up from member data later
 
         // Generate a unique ID for this submission
         const id = 'sub_sync_' + Date.now().toString(36) + '_' + i;
