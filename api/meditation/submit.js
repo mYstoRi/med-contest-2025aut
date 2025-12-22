@@ -130,30 +130,27 @@ export default async function handler(req, res) {
         console.log(`📝 Meditation saved: ${name} - ${dateKey} - ${durationNum} min (total: ${member.total})`);
 
         // Store individual submission record (for afterthoughts/history)
-        const submissionId = 'sub_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
-        const submission = {
+        const submissionId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const activity = {
             id: submissionId,
             type: 'meditation',
-            name,
+            member: name,
             team: member.team,
             date: dateKey,
-            duration: durationNum,
+            value: durationNum,
             timeOfDay,
-            thoughts: thoughts || '',
+            thoughts: thoughts || undefined,
             shareConsent,
-            submittedAt: new Date().toISOString()
+            source: 'submission',
+            createdAt: new Date().toISOString()
         };
 
-        // Get existing submissions and add new one
-        let submissions = await getCache('submissions:all') || [];
-        submissions.unshift(submission); // Add to beginning (newest first)
-        // Keep only last 500 submissions to prevent unbounded growth
-        if (submissions.length > 500) {
-            submissions = submissions.slice(0, 500);
-        }
-        await setDataPermanent('submissions:all', submissions);
+        // Get existing activities and add new one
+        let activities = await getCache('activities:all') || [];
+        activities.push(activity);
+        await setDataPermanent('activities:all', activities);
 
-        console.log(`📝 Submission stored: ${submissionId}`);
+        console.log(`📝 Activity stored: ${submissionId}`);
 
         return res.status(200).json({
             success: true,

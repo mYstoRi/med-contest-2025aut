@@ -242,6 +242,124 @@ async function fetchFromSheets() {
     };
 }
 
+// Helper to generate unique ID
+function generateId() {
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Helper to normalize date to YYYY/MM/DD format
+function normalizeDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        // Already YYYY/MM/DD or needs reordering
+        if (parts[0].length === 4) return dateStr; // Already YYYY/MM/DD
+        // Assume YYYY is first, pad month/day
+        return `${parts[0]}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}`;
+    } else if (parts.length === 2) {
+        // MM/DD format - assume 2024 or current year
+        const year = new Date().getFullYear();
+        return `${year}/${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+    }
+    return dateStr;
+}
+
+// Convert all synced data to unified activities array
+function convertToUnifiedActivities(sheetData) {
+    const activities = [];
+    const now = new Date().toISOString();
+
+    // Convert meditation data
+    if (sheetData.meditation?.members) {
+        for (const member of sheetData.meditation.members) {
+            if (member.daily) {
+                for (const [date, value] of Object.entries(member.daily)) {
+                    if (value > 0) {
+                        activities.push({
+                            id: generateId(),
+                            type: 'meditation',
+                            team: member.team,
+                            member: member.name,
+                            date: normalizeDate(date),
+                            value,
+                            source: 'sync',
+                            createdAt: now,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Convert practice data
+    if (sheetData.practice?.members) {
+        for (const member of sheetData.practice.members) {
+            if (member.daily) {
+                for (const [date, value] of Object.entries(member.daily)) {
+                    if (value > 0) {
+                        activities.push({
+                            id: generateId(),
+                            type: 'practice',
+                            team: member.team,
+                            member: member.name,
+                            date: normalizeDate(date),
+                            value,
+                            source: 'sync',
+                            createdAt: now,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Convert class data
+    if (sheetData.class?.members) {
+        for (const member of sheetData.class.members) {
+            if (member.daily) {
+                for (const [date, value] of Object.entries(member.daily)) {
+                    if (value > 0) {
+                        activities.push({
+                            id: generateId(),
+                            type: 'class',
+                            team: member.team,
+                            member: member.name,
+                            date: normalizeDate(date),
+                            value,
+                            source: 'sync',
+                            createdAt: now,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Convert form submissions (these have thoughts, timeOfDay, etc.)
+    if (sheetData.recentActivity) {
+        for (const sub of sheetData.recentActivity) {
+            if (sub.duration > 0 || sub.minutes > 0) {
+                activities.push({
+                    id: sub.id || generateId(),
+                    type: sub.type || 'meditation',
+                    team: sub.team || '',
+                    member: sub.name,
+                    date: normalizeDate(sub.date),
+                    value: sub.duration || sub.minutes,
+                    thoughts: sub.thoughts || undefined,
+                    timeOfDay: sub.timeOfDay || undefined,
+                    shareConsent: sub.shareConsent || undefined,
+                    source: 'submission',
+                    createdAt: sub.submittedAt || now,
+                });
+            }
+        }
+    }
+
+    console.log(`📊 Converted to ${activities.length} unified activities`);
+    return activities;
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -285,29 +403,33 @@ export default async function handler(req, res) {
             await Promise.all([
                 deleteCache('members:all'),
                 deleteCache('activities:all'),
+                deleteCache('submissions:all'),
                 deleteCache(DATA_KEYS.TEAMS),
             ]);
             console.log('✅ Manual caches cleared');
+
+            // Convert to unified activities format
+            const unifiedActivities = convertToUnifiedActivities(sheetData);
 
             console.log('💾 Saving sheet data to database...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, sheetData.meditation),
                 setDataPermanent(DATA_KEYS.PRACTICE, sheetData.practice),
                 setDataPermanent(DATA_KEYS.CLASS, sheetData.class),
-                // Store form responses with thoughts to submissions:all
-                setDataPermanent('submissions:all', sheetData.recentActivity),
+                // Store unified activities
+                setDataPermanent('activities:all', unifiedActivities),
                 setCacheMeta({
                     syncedAt: sheetData.syncedAt,
-                    recentActivity: sheetData.recentActivity.slice(0, 50), // Keep recent 50 for display
+                    recentActivity: sheetData.recentActivity.slice(0, 50),
                     lastSyncMode: 'overwrite',
                 }),
             ]);
 
-            // Verify data was saved by reading it back
+            // Verify data was saved
             console.log('🔍 Verifying save...');
-            const verifyMed = await getCache(DATA_KEYS.MEDITATION);
-            const verified = verifyMed?.members?.length || 0;
-            console.log(`✅ Verified: ${verified} meditation members saved`);
+            const verifyActivities = await getCache('activities:all');
+            const verifiedCount = verifyActivities?.length || 0;
+            console.log(`✅ Verified: ${verifiedCount} unified activities saved`);
 
             return res.status(200).json({
                 success: true,
@@ -319,8 +441,8 @@ export default async function handler(req, res) {
                     practice: sheetData.practice.members.length,
                     class: sheetData.class.members.length,
                     recentActivity: sheetData.recentActivity.length,
+                    unifiedActivities: verifiedCount,
                 },
-                verified: verified,
             });
         } else {
             // Merge: Get existing data first
@@ -356,39 +478,43 @@ export default async function handler(req, res) {
             const mergedPrac = mergeMembers(existingPrac, sheetData.practice);
             const mergedClass = mergeMembers(existingClass, sheetData.class);
 
-            // Merge submissions: combine existing with new, dedupe by timestamp+name
-            const existingSubmissions = await getCache('submissions:all') || [];
-            const existingSubMap = new Map();
-            for (const sub of existingSubmissions) {
-                const key = `${sub.name}:${sub.timestamp || sub.submittedAt}`;
-                existingSubMap.set(key, sub);
+            // Convert new data to unified activities
+            const newActivities = convertToUnifiedActivities(sheetData);
+
+            // Merge with existing activities, dedupe by member+date+type
+            const existingActivities = await getCache('activities:all') || [];
+            const activityMap = new Map();
+
+            // Add existing activities first
+            for (const act of existingActivities) {
+                const key = `${act.member}:${act.date}:${act.type}`;
+                activityMap.set(key, act);
             }
-            for (const sub of sheetData.recentActivity) {
-                const key = `${sub.name}:${sub.timestamp || sub.submittedAt}`;
-                existingSubMap.set(key, sub);
+            // Add new activities (overwrites existing with same key)
+            for (const act of newActivities) {
+                const key = `${act.member}:${act.date}:${act.type}`;
+                activityMap.set(key, act);
             }
-            const mergedSubmissions = Array.from(existingSubMap.values())
-                .sort((a, b) => new Date(b.submittedAt || b.timestamp) - new Date(a.submittedAt || a.timestamp))
-                .slice(0, 500); // Keep max 500
+            const mergedActivities = Array.from(activityMap.values());
 
             console.log('💾 Saving merged data...');
             await Promise.all([
                 setDataPermanent(DATA_KEYS.MEDITATION, mergedMed),
                 setDataPermanent(DATA_KEYS.PRACTICE, mergedPrac),
                 setDataPermanent(DATA_KEYS.CLASS, mergedClass),
-                setDataPermanent('submissions:all', mergedSubmissions),
+                setDataPermanent('activities:all', mergedActivities),
                 setCacheMeta({
                     syncedAt: sheetData.syncedAt,
-                    recentActivity: mergedSubmissions.slice(0, 50),
+                    recentActivity: sheetData.recentActivity.slice(0, 50),
                     lastSyncMode: 'merge',
                 }),
             ]);
 
-            // Verify data was saved by reading it back
+            // Verify data was saved
             console.log('🔍 Verifying merge save...');
-            const verifyMed = await getCache(DATA_KEYS.MEDITATION);
-            const verified = verifyMed?.members?.length || 0;
-            console.log(`✅ Verified: ${verified} meditation members saved`);
+            const verifyActivities = await getCache('activities:all');
+            const verifiedCount = verifyActivities?.length || 0;
+            console.log(`✅ Verified: ${verifiedCount} unified activities saved`);
 
             return res.status(200).json({
                 success: true,
@@ -400,8 +526,8 @@ export default async function handler(req, res) {
                     practice: mergedPrac.members.length,
                     class: mergedClass.members.length,
                     recentActivity: sheetData.recentActivity.length,
+                    unifiedActivities: verifiedCount,
                 },
-                verified: verified,
             });
         }
     } catch (error) {
