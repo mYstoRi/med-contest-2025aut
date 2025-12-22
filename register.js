@@ -26,8 +26,18 @@ async function loadMembers() {
         // Build member list grouped by team, with tier info
         const teamMembers = {}; // { teamName: { memberName: { name, isNavigator } } }
 
-        // Get members from meditation data
-        if (apiData.meditation?.members) {
+        // Get members from allMembers (comprehensive list)
+        if (apiData.allMembers) {
+            for (const m of apiData.allMembers) {
+                if (!teamMembers[m.team]) {
+                    teamMembers[m.team] = {};
+                }
+                if (!teamMembers[m.team][m.name]) {
+                    teamMembers[m.team][m.name] = { name: m.name, isNavigator: false };
+                }
+            }
+        } else if (apiData.meditation?.members) {
+            // Fallback for older API
             for (const m of apiData.meditation.members) {
                 if (!teamMembers[m.team]) {
                     teamMembers[m.team] = {};
@@ -224,10 +234,7 @@ function showSuccessAnimation(formData) {
                     <span class="btn-icon">📊</span>
                     查看積分榜 View Leaderboard
                 </a>
-                <button onclick="location.reload()" class="submit-btn" style="margin-top: 1rem; background: linear-gradient(135deg, #10b981, #059669);">
-                    <span class="btn-icon">➕</span>
-                    再記錄一筆 Log Another
-                </button>
+
             </div>
         </div>
     `;

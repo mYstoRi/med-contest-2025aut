@@ -17,35 +17,45 @@ export default async function handler(req, res) {
 
     try {
         // Get unified activities and metadata
-        const [activities, manualMembers, meta] = await Promise.all([
+        const [activities, manualMembers, syncedMembers, meta] = await Promise.all([
             getCache('activities:all'),
             getCache('members:all'),
+            getCache('members:synced'),
             getCacheMeta(),
         ]);
 
         const allActivities = activities || [];
 
-        // Helper to normalize date (YYYY/MM/DD -> MM/DD for frontend display compatibility)
-        // Ideally frontend should handle YYYY/MM/DD, but keeping MM/DD for now if that's what it expects
-        // Actually, let's return YYYY/MM/DD and let frontend handle it, or check what frontend expects. 
-        // Existing code used normalizeDate to convert to MM/DD. 
-        // Let's stick to returning normalized dates (YYYY/MM/DD) but maybe frontend needs MM/DD keys for charts?
-        // Let's keep keys as YYYY/MM/DD in the output. The previous system had mixed keys.
+        // Build comprehensive member list (allMembers) for registration form
+        const allMemberMap = new Map();
 
-        // Build team lookup
-        const teamLookup = {};
-        const membersList = manualMembers || [];
-        for (const m of membersList) {
-            if (m.name && m.team) {
-                teamLookup[m.name] = m.team;
+        // 1. Add synced members (from sheets)
+        for (const m of (syncedMembers || [])) {
+            const key = `${m.team}:${m.name}`;
+            allMemberMap.set(key, { name: m.name, team: m.team || 'Unknown' });
+        }
+
+        // 2. Add manual members
+        for (const m of (manualMembers || [])) {
+            const key = `${m.team}:${m.name}`;
+            allMemberMap.set(key, { name: m.name, team: m.team || 'Unknown' });
+        }
+
+        // 3. Add members from activities (fallback)
+        for (const act of allActivities) {
+            if (act.member) {
+                const team = act.team || 'Unknown';
+                const key = `${team}:${act.member}`;
+                if (!allMemberMap.has(key)) {
+                    allMemberMap.set(key, { name: act.member, team: team });
+                }
             }
         }
 
-        // Also build team lookup from activities themselves (if source is database/sheets)
-        for (const act of allActivities) {
-            if (act.member && act.team && !teamLookup[act.member]) {
-                teamLookup[act.member] = act.team;
-            }
+        // Build team lookup
+        const teamLookup = {};
+        for (const m of allMemberMap.values()) {
+            teamLookup[m.name] = m.team;
         }
 
         // Initialize response structures
@@ -54,7 +64,8 @@ export default async function handler(req, res) {
             practice: { members: [] },
             class: { members: [] },
             recentActivity: [],
-            syncedAt: (meta && meta.syncedAt) || new Date().toISOString()
+            syncedAt: (meta && meta.syncedAt) || new Date().toISOString(),
+            allMembers: Array.from(allMemberMap.values())
         };
 
         // Aggregation maps

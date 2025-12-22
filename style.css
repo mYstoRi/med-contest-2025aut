@@ -15,6 +15,14 @@
   --team-4-color: #8b5cf6;
   /* 宗翰 - Violet/Purple */
   --team-4-glow: rgba(139, 92, 246, 0.5);
+  --team-5-color: #06b6d4;
+  --team-5-glow: rgba(6, 182, 212, 0.5);
+  --team-6-color: #f43f5e;
+  --team-6-glow: rgba(244, 63, 94, 0.5);
+  --team-7-color: #84cc16;
+  --team-7-glow: rgba(132, 204, 22, 0.5);
+  --team-8-color: #3b82f6;
+  --team-8-glow: rgba(59, 130, 246, 0.5);
 
   /* Background - Dark Theme (Default) */
   --bg-dark: #0f0a1f;
@@ -60,6 +68,10 @@
   --team-2-glow: rgba(236, 72, 153, 0.3);
   --team-3-glow: rgba(16, 185, 129, 0.3);
   --team-4-glow: rgba(139, 92, 246, 0.3);
+  --team-5-glow: rgba(6, 182, 212, 0.3);
+  --team-6-glow: rgba(244, 63, 94, 0.3);
+  --team-7-glow: rgba(132, 204, 22, 0.3);
+  --team-8-glow: rgba(59, 130, 246, 0.3);
 
   /* Light background */
   --bg-dark: #faf8f5;
@@ -437,6 +449,26 @@ body {
   box-shadow: 0 0 30px var(--team-4-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
+.team-bar.team-5 {
+  background: linear-gradient(to top, var(--team-5-color), #67e8f9);
+  box-shadow: 0 0 30px var(--team-5-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.team-bar.team-6 {
+  background: linear-gradient(to top, var(--team-6-color), #fda4af);
+  box-shadow: 0 0 30px var(--team-6-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.team-bar.team-7 {
+  background: linear-gradient(to top, var(--team-7-color), #bef264);
+  box-shadow: 0 0 30px var(--team-7-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.team-bar.team-8 {
+  background: linear-gradient(to top, var(--team-8-color), #93c5fd);
+  box-shadow: 0 0 30px var(--team-8-glow), inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
 .team-bar-score {
   font-size: 1.5rem;
   font-weight: 700;
@@ -498,6 +530,22 @@ body {
 
 .team-name.team-4 {
   color: var(--team-4-color);
+}
+
+.team-name.team-5 {
+  color: var(--team-5-color);
+}
+
+.team-name.team-6 {
+  color: var(--team-6-color);
+}
+
+.team-name.team-7 {
+  color: var(--team-7-color);
+}
+
+.team-name.team-8 {
+  color: var(--team-8-color);
 }
 
 /* Particles animation */
@@ -742,6 +790,22 @@ body {
   border-left-color: var(--team-4-color);
 }
 
+.activity-item.team-5 {
+  border-left-color: var(--team-5-color);
+}
+
+.activity-item.team-6 {
+  border-left-color: var(--team-6-color);
+}
+
+.activity-item.team-7 {
+  border-left-color: var(--team-7-color);
+}
+
+.activity-item.team-8 {
+  border-left-color: var(--team-8-color);
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -827,6 +891,26 @@ body {
 
 .activity-points.team-4 {
   background: var(--team-4-glow);
+  color: white;
+}
+
+.activity-points.team-5 {
+  background: var(--team-5-glow);
+  color: white;
+}
+
+.activity-points.team-6 {
+  background: var(--team-6-glow);
+  color: white;
+}
+
+.activity-points.team-7 {
+  background: var(--team-7-glow);
+  color: white;
+}
+
+.activity-points.team-8 {
+  background: var(--team-8-glow);
   color: white;
 }
 
