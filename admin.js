@@ -113,19 +113,19 @@ function showDashboard() {
     isAuthenticated = true;
 
     // Load initial data
-    loadActivities();
     populateTeamDropdowns();
-    loadMaintenanceStatus();
+    loadSettings();
 }
 
 // ========================================
-// Maintenance Mode
+// Settings (Maintenance & Announcement)
 // ========================================
-async function loadMaintenanceStatus() {
+async function loadSettings() {
     try {
         const response = await fetch('/api/admin/settings');
         const data = await response.json();
 
+        // Maintenance
         const toggle = $('maintenanceToggle');
         const status = $('maintenanceStatus');
 
@@ -136,8 +136,15 @@ async function loadMaintenanceStatus() {
             status.textContent = data.maintenanceMode ? '🔴 已啟用 ON' : '🟢 已停用 OFF';
             status.style.color = data.maintenanceMode ? '#f59e0b' : '#10b981';
         }
+
+        // Announcement
+        const announcementInput = $('announcementInput');
+        if (announcementInput) {
+            announcementInput.value = data.announcement || '';
+        }
+
     } catch (error) {
-        console.error('Failed to load maintenance status:', error);
+        console.error('Failed to load settings:', error);
     }
 }
 
@@ -161,7 +168,7 @@ async function toggleMaintenanceMode() {
         });
 
         showToast(newState ? '維護模式已啟用 Maintenance mode enabled' : '維護模式已停用 Maintenance mode disabled');
-        loadMaintenanceStatus();
+        loadSettings();
     } catch (error) {
         showToast(`失敗: ${error.message}`, 'error');
         // Revert toggle
@@ -169,7 +176,32 @@ async function toggleMaintenanceMode() {
     }
 }
 
+async function saveAnnouncement() {
+    const input = $('announcementInput');
+    const content = input.value.trim();
+    const btn = $('saveAnnouncementBtn');
+
+    try {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        await apiCall('/settings', {
+            method: 'POST',
+            body: JSON.stringify({ announcement: content }),
+        });
+
+        showToast('公告已更新 Announcement updated');
+        loadSettings();
+    } catch (error) {
+        showToast(`失敗: ${error.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '儲存公告 Save Announcement';
+    }
+}
+
 window.toggleMaintenanceMode = toggleMaintenanceMode;
+window.saveAnnouncement = saveAnnouncement;
 
 // ========================================
 // Activities

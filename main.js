@@ -518,6 +518,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const settingsResp = await fetch('/api/admin/settings');
         const settings = await settingsResp.json();
+
+        // Show announcement if exists
+        const announcementBoard = document.getElementById('announcementBoard');
+        const announcementText = document.getElementById('announcementText');
+        if (settings.announcement && announcementBoard && announcementText) {
+            announcementText.textContent = settings.announcement;
+            announcementBoard.classList.remove('hidden');
+        } else if (announcementBoard) {
+            announcementBoard.classList.add('hidden');
+        }
+
         if (settings.maintenanceMode) {
             showMaintenanceMode(settings.maintenanceMessage);
             return; // Don't load data

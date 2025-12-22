@@ -13,6 +13,7 @@ const SETTINGS_KEY = 'settings:app';
 const DEFAULT_SETTINGS = {
     maintenanceMode: false,
     maintenanceMessage: '網站維護中，請稍後再試。\nSite under maintenance, please try again later.',
+    announcement: '',
 };
 
 /**
@@ -80,6 +81,9 @@ export default async function handler(req, res) {
             }
             if (typeof maintenanceMessage === 'string') {
                 updates.maintenanceMessage = maintenanceMessage;
+            }
+            if (typeof req.body.announcement === 'string') {
+                updates.announcement = req.body.announcement;
             }
 
             const updated = await updateSettings(updates);

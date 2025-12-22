@@ -1451,3 +1451,64 @@ body {
 [data-theme="light"] .rule-icon {
   background: rgba(255, 255, 255, 0.5);
 }
+
+/* ========================================
+   Announcement Board
+   ======================================== */
+.announcement-board {
+  margin-top: -1rem;
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.announcement-board.hidden {
+  display: none;
+}
+
+.announcement-content {
+  background: rgba(139, 92, 246, 0.15);
+  /* Purple tint */
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 10px 24px;
+  border-radius: 50px;
+  /* Pill shape */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #e0d7ff;
+  font-weight: 500;
+  font-size: 1.05rem;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: float 3s ease-in-out infinite;
+  max-width: 95%;
+  text-align: center;
+}
+
+.announcement-icon {
+  font-size: 1.4rem;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+  }
+
+  50% {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+  }
+}
+
+[data-theme="light"] .announcement-content {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.2);
+  color: #6d28d9;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}

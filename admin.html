@@ -1052,6 +1052,25 @@
                 </div>
             </div>
 
+            <!-- Announcement Board -->
+            <div class="admin-card">
+                <div class="card-header">
+                    <div class="card-title">公告板 Announcement Board</div>
+                </div>
+                <p style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">
+                    設定後將顯示於首頁上方 (留空則隱藏)。支援 Emoji。<br>
+                    Displayed at the top of main page (leave empty to hide). Supports Emoji.
+                </p>
+                <div class="form-group">
+                    <label class="form-label" for="announcementInput">公告內容 Content</label>
+                    <input type="text" id="announcementInput" class="form-input"
+                        placeholder="e.g. 今晚有課！Tonight there is a class! (+50 📚)"
+                        style="margin-bottom: var(--spacing-md);">
+                    <button class="action-btn primary" id="saveAnnouncementBtn" onclick="saveAnnouncement()">儲存公告 Save
+                        Announcement</button>
+                </div>
+            </div>
+
             <div class="admin-card">
                 <div class="card-header">
                     <h2 class="card-title">🔄 同步 Google Sheets Data Sync</h2>
