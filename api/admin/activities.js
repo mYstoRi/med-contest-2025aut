@@ -614,6 +614,11 @@ export default async function handler(req, res) {
             let submissionsLoaded = false;
             let submissionsModified = false;
 
+            // Track meditation data for db cleanup
+            let meditationData = null;
+            let meditationLoaded = false;
+            let meditationModified = false;
+
             // Process each ID
             for (const deleteId of idsToDelete) {
                 try {
@@ -700,8 +705,38 @@ export default async function handler(req, res) {
                             return subId !== deleteId;
                         });
 
-                        if (submissionsData.length < originalLength) {
-                            submissionsModified = true;
+                        // Also try to remove from data:meditation
+                        // Parse the ID: sub_{name}_{date}
+                        const idParts = deleteId.substring(4).split('_'); // Remove 'sub_' prefix
+                        if (idParts.length >= 2) {
+                            const date = idParts.pop(); // Last part is date (MM/DD)
+                            const name = idParts.join('_'); // Rest is name (may contain underscores)
+
+                            // Load and modify meditation data
+                            if (!meditationLoaded) {
+                                meditationData = await getCache('data:meditation');
+                                meditationLoaded = true;
+                            }
+
+                            if (meditationData?.members) {
+                                const member = meditationData.members.find(m => m.name === name);
+                                if (member?.daily) {
+                                    // Try to find and delete the date entry
+                                    const dateKeys = Object.keys(member.daily);
+                                    for (const dk of dateKeys) {
+                                        if (normDate(dk) === date) {
+                                            delete member.daily[dk];
+                                            member.total = Object.values(member.daily).reduce((a, b) => a + b, 0);
+                                            meditationModified = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (submissionsData.length < originalLength || meditationModified) {
+                            if (submissionsData.length < originalLength) submissionsModified = true;
                             results.deleted.push({ id: deleteId, source: 'submission' });
                         } else {
                             results.failed.push({ id: deleteId, error: 'Submission not found' });
@@ -733,6 +768,12 @@ export default async function handler(req, res) {
             if (submissionsModified) {
                 const { setDataPermanent } = await import('../_lib/kv.js');
                 await setDataPermanent('submissions:all', submissionsData);
+            }
+
+            // Save meditation data if modified
+            if (meditationModified && meditationData) {
+                const { setDataPermanent } = await import('../_lib/kv.js');
+                await setDataPermanent('data:meditation', meditationData);
             }
 
             return res.status(200).json({
