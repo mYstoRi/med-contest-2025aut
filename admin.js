@@ -155,25 +155,59 @@ function renderActivities() {
         return;
     }
 
-    tbody.innerHTML = filtered.map(activity => {
-        const thoughtsHtml = activity.thoughts
-            ? `<span class="thoughts-indicator" title="${escapeHtml(activity.thoughts)}">💭</span>`
+    tbody.innerHTML = filtered.map((activity, idx) => {
+        const hasDetails = activity.thoughts || activity.timeOfDay || activity.shareConsent;
+        const expandBtn = hasDetails
+            ? `<button class="expand-btn" onclick="toggleActivityDetails('details-${idx}')" title="查看詳情">▶</button>`
             : '';
+        const thoughtsIndicator = activity.thoughts ? '💭' : '';
+
+        // Details row (hidden by default)
+        const detailsRow = hasDetails ? `
+        <tr id="details-${idx}" class="details-row" style="display: none;">
+            <td colspan="6">
+                <div class="activity-details">
+                    ${activity.timeOfDay ? `<div class="detail-item"><strong>時段 Time of Day:</strong> ${escapeHtml(activity.timeOfDay)}</div>` : ''}
+                    ${activity.thoughts ? `<div class="detail-item"><strong>心得 Thoughts:</strong><div class="thoughts-content">${escapeHtml(activity.thoughts)}</div></div>` : ''}
+                    ${activity.shareConsent ? `<div class="detail-item"><strong>分享意願 Share Consent:</strong> ${escapeHtml(activity.shareConsent)}</div>` : ''}
+                    ${activity.source ? `<div class="detail-item"><strong>來源 Source:</strong> ${activity.source === 'sheets' ? '📊 Google Sheets' : '📝 手動輸入'}</div>` : ''}
+                </div>
+            </td>
+        </tr>
+        ` : '';
+
         return `
-        <tr>
+        <tr class="${hasDetails ? 'expandable' : ''}">
             <td><input type="checkbox" class="activity-checkbox" data-id="${activity.id}" onchange="updateBulkDeleteUI()"></td>
             <td>${renderTeamBadge(activity.team)}</td>
             <td>${activity.member}</td>
             <td>${formatActivityDate(activity.date)}</td>
-            <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)} ${thoughtsHtml}</td>
+            <td><span class="type-tag ${activity.type}">${getTypeEmoji(activity.type)}</span> ${formatActivityValue(activity)} ${thoughtsIndicator} ${expandBtn}</td>
             <td>
                 <button class="action-btn danger" onclick="deleteActivity('${activity.id}')">🗑️</button>
             </td>
         </tr>
+        ${detailsRow}
     `}).join('');
 
     updateBulkDeleteUI();
 }
+
+function toggleActivityDetails(rowId) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    const isHidden = row.style.display === 'none';
+    row.style.display = isHidden ? 'table-row' : 'none';
+
+    // Update expand button
+    const expandBtn = row.previousElementSibling?.querySelector('.expand-btn');
+    if (expandBtn) {
+        expandBtn.textContent = isHidden ? '▼' : '▶';
+    }
+}
+
+window.toggleActivityDetails = toggleActivityDetails;
 
 function getTeamShortName(teamName) {
     const team = allTeams.find(t => t.name === teamName);
