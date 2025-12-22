@@ -394,7 +394,7 @@ function renderPrizes(prizes, streaks) {
 
                 <!-- Grinder King -->
                 <div class="prize-card ${prizes.isGrinder ? 'gold-active' : 'locked'}">
-                    <div class="prize-icon">👺</div>
+                    <div class="prize-icon">👌</div>
                     <div class="prize-info">
                         <div class="prize-title">最強內捲王</div>
                         <div class="prize-desc">The Grinder King</div>
