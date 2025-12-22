@@ -288,6 +288,31 @@ body {
   transform: translateY(0) scale(0.98);
 }
 
+.aizen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-md);
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #0ea5e9, #2dd4bf);
+  color: white;
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+}
+
+.aizen-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 25px rgba(14, 165, 233, 0.5);
+}
+
+.aizen-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
 /* ========================================
    Section Titles
    ======================================== */

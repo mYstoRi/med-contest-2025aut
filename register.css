@@ -209,36 +209,6 @@
     }
 }
 
-.aizen-promo {
-    text-align: center;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-}
-
-.aizen-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.8rem 1.5rem;
-    background: linear-gradient(135deg, #0ea5e9, #2dd4bf);
-    color: white;
-    text-decoration: none;
-    border-radius: 9999px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
-    font-size: 1rem;
-}
-
-.aizen-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
-}
-
-.aizen-btn:active {
-    transform: translateY(0);
-}
-
 .btn-icon {
     font-size: 1.2rem;
 }
