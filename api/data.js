@@ -1,5 +1,28 @@
 import { getCache, getCacheMeta, CACHE_KEYS } from './_lib/kv.js';
 
+/**
+ * Parse activity date to milliseconds for sorting
+ * Handles formats: YYYY/MM/DD, MM/DD
+ */
+function parseActivityDate(dateStr) {
+    if (!dateStr) return 0;
+    const parts = dateStr.split('/');
+    let year, month, day;
+
+    if (parts.length === 3) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+    } else if (parts.length === 2) {
+        month = parseInt(parts[0], 10) || 1;
+        day = parseInt(parts[1], 10) || 1;
+        year = new Date().getFullYear();
+    } else {
+        return 0;
+    }
+    return new Date(year, month - 1, day).getTime();
+}
+
 // API Handler - Database only (aggregates from unified activities)
 export default async function handler(req, res) {
     // Set CORS headers
@@ -149,7 +172,14 @@ export default async function handler(req, res) {
         // Recent Activity (filter for meditation with details)
         data.recentActivity = allActivities
             .filter(a => a.type === 'meditation' && (a.thoughts || a.timeOfDay))
-            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+            .sort((a, b) => {
+                // Primary sort: by activity date (descending)
+                const dateA = parseActivityDate(a.date);
+                const dateB = parseActivityDate(b.date);
+                if (dateB !== dateA) return dateB - dateA;
+                // Secondary sort: by createdAt (descending)
+                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            })
             .slice(0, 50)
             .map(a => ({
                 id: a.id,
